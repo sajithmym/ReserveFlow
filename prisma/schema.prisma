@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum ReservationStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model User {
+  id            String        @id @default(uuid()) @db.Uuid
+  email         String        @unique
+  name          String
+  emailVerified Boolean       @default(false)
+  image         String?
+  role          Role          @default(MEMBER)
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
+  reservations  Reservation[]
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(uuid()) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  password              String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(uuid()) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+  @@index([identifier])
+}
+
+model Resource {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  category     String
+  location     String?
+  capacity     Int?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(3)
+  reservations Reservation[]
+  @@index([isActive, category])
+}
+
+model Reservation {
+  id         String            @id @default(uuid()) @db.Uuid
+  resourceId String            @db.Uuid
+  userId     String            @db.Uuid
+  title      String
+  startAt    DateTime          @db.Timestamptz(3)
+  endAt      DateTime          @db.Timestamptz(3)
+  status     ReservationStatus @default(CONFIRMED)
+  createdAt  DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime          @updatedAt @db.Timestamptz(3)
+  resource   Resource          @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  @@index([userId, startAt])
+  @@index([resourceId, startAt])
+  @@index([status, startAt])
+}

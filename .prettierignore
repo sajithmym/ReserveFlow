@@ -1,0 +1,10 @@
+ReserveFlow-Prompts/
+node_modules/
+.next/
+.local/
+src/generated/
+package-lock.json
+playwright-report/
+test-results/
+artifacts/
+.env*

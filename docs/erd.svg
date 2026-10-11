@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1020" viewBox="0 0 1280 1020" role="img" aria-labelledby="title desc">
+  <title id="title">ReserveFlow PostgreSQL entity relationship diagram</title>
+  <desc id="desc">User and Resource each have many Reservations. User has many Accounts and Sessions. Verification is independent. All six database tables are shown.</desc>
+  <defs><style>text{font-family:Arial,Helvetica,sans-serif}.heading{font-size:19px;fill:#064e3b;font-weight:bold}.field{font-size:13px;fill:#44403c}.note{font-size:13px;fill:#57534e}.edge{fill:none;stroke:#5e8b78;stroke-width:2}.table{fill:#fff;stroke:#d6ddd8;stroke-width:1.5}.bar{fill:#e6f3eb}.label{font-size:12px;fill:#047857;font-weight:bold}</style></defs>
+  <rect width="1280" height="1020" fill="#f8faf8"/>
+  <text x="48" y="49" font-size="29" fill="#064e3b" font-weight="bold">ReserveFlow</text>
+  <text x="48" y="77" class="note">Entity relationships · PostgreSQL · UUID keys · TIMESTAMPTZ(3) instants</text>
+  <path class="edge" d="M388 240 H476 V280 H530"/><text x="410" y="226" class="label">1 → many</text>
+  <path class="edge" d="M884 280 H940"/><text x="892" y="267" class="label">N ← 1</text>
+  <path class="edge" d="M158 405 V450 H160 V486"/><text x="173" y="454" class="label">1 → many</text>
+  <path class="edge" d="M324 405 V433 H705 V486"/><text x="516" y="421" class="label">1 → many</text>
+  <rect x="48" y="118" width="340" height="287" rx="12" class="table"/><path d="M60 118 H376 Q388 118 388 130 V161 H48 V130 Q48 118 60 118" class="bar"/>
+  <text x="68" y="146" class="heading">User</text>
+  <g class="field"><text x="68" y="186">id · UUID · PK</text><text x="68" y="210">email · TEXT · UNIQUE</text><text x="68" y="234">name · TEXT</text><text x="68" y="258">emailVerified · BOOLEAN</text><text x="68" y="282">image · TEXT?</text><text x="68" y="306">role · ADMIN | MEMBER</text><text x="68" y="330">isActive · BOOLEAN</text><text x="68" y="354">createdAt · TIMESTAMPTZ</text><text x="68" y="378">updatedAt · TIMESTAMPTZ</text></g>
+  <rect x="530" y="118" width="354" height="287" rx="12" class="table"/><path d="M542 118 H872 Q884 118 884 130 V161 H530 V130 Q530 118 542 118" class="bar"/>
+  <text x="550" y="146" class="heading">Reservation</text>
+  <g class="field"><text x="550" y="186">id · UUID · PK</text><text x="550" y="210">resourceId · UUID · FK → Resource</text><text x="550" y="234">userId · UUID · FK → User</text><text x="550" y="258">title · TEXT</text><text x="550" y="282">startAt · TIMESTAMPTZ</text><text x="550" y="306">endAt · TIMESTAMPTZ</text><text x="550" y="330">status · CONFIRMED | CANCELLED</text><text x="550" y="354">createdAt · TIMESTAMPTZ</text><text x="550" y="378">updatedAt · TIMESTAMPTZ</text></g>
+  <rect x="940" y="118" width="292" height="287" rx="12" class="table"/><path d="M952 118 H1220 Q1232 118 1232 130 V161 H940 V130 Q940 118 952 118" class="bar"/>
+  <text x="960" y="146" class="heading">Resource</text>
+  <g class="field"><text x="960" y="186">id · UUID · PK</text><text x="960" y="210">name · TEXT</text><text x="960" y="234">description · TEXT?</text><text x="960" y="258">category · TEXT</text><text x="960" y="282">location · TEXT?</text><text x="960" y="306">capacity · INTEGER?</text><text x="960" y="330">isActive · BOOLEAN</text><text x="960" y="354">createdAt · TIMESTAMPTZ</text><text x="960" y="378">updatedAt · TIMESTAMPTZ</text></g>
+  <rect x="48" y="486" width="400" height="395" rx="12" class="table"/><path d="M60 486 H436 Q448 486 448 498 V529 H48 V498 Q48 486 60 486" class="bar"/>
+  <text x="68" y="514" class="heading">Account</text>
+  <g class="field"><text x="68" y="554">id · UUID · PK</text><text x="68" y="578">accountId · TEXT</text><text x="68" y="602">providerId · TEXT (credential)</text><text x="68" y="626">userId · UUID · FK → User</text><text x="68" y="650">password · TEXT? (Argon2id hash)</text><text x="68" y="674">accessToken · TEXT?</text><text x="68" y="698">refreshToken · TEXT?</text><text x="68" y="722">idToken · TEXT?</text><text x="68" y="746">accessTokenExpiresAt · TIMESTAMPTZ?</text><text x="68" y="770">refreshTokenExpiresAt · TIMESTAMPTZ?</text><text x="68" y="794">scope · TEXT?</text><text x="68" y="818">createdAt, updatedAt · TIMESTAMPTZ</text><text x="68" y="854" class="label">UNIQUE(providerId, accountId)</text></g>
+  <rect x="530" y="486" width="354" height="272" rx="12" class="table"/><path d="M542 486 H872 Q884 486 884 498 V529 H530 V498 Q530 486 542 486" class="bar"/>
+  <text x="550" y="514" class="heading">Session</text>
+  <g class="field"><text x="550" y="554">id · UUID · PK</text><text x="550" y="578">token · TEXT · UNIQUE</text><text x="550" y="602">userId · UUID · FK → User</text><text x="550" y="626">expiresAt · TIMESTAMPTZ</text><text x="550" y="650">ipAddress · TEXT?</text><text x="550" y="674">userAgent · TEXT?</text><text x="550" y="698">createdAt · TIMESTAMPTZ</text><text x="550" y="722">updatedAt · TIMESTAMPTZ</text></g>
+  <rect x="940" y="486" width="292" height="224" rx="12" class="table"/><path d="M952 486 H1220 Q1232 486 1232 498 V529 H940 V498 Q940 486 952 486" class="bar"/>
+  <text x="960" y="514" class="heading">Verification</text>
+  <g class="field"><text x="960" y="554">id · UUID · PK</text><text x="960" y="578">identifier · TEXT (indexed)</text><text x="960" y="602">value · TEXT</text><text x="960" y="626">expiresAt · TIMESTAMPTZ</text><text x="960" y="650">createdAt · TIMESTAMPTZ</text><text x="960" y="674">updatedAt · TIMESTAMPTZ</text></g>
+  <text x="530" y="794" class="note">? = nullable · Relationships use UUID foreign keys</text>
+  <text x="530" y="818" class="note">Reservation FKs: RESTRICT deletion</text>
+  <text x="530" y="842" class="note">Account and Session FKs: CASCADE user deletion</text>
+  <rect x="48" y="908" width="1184" height="78" rx="12" fill="#e6f3eb"/>
+  <text x="68" y="937" class="label">DATABASE INVARIANTS</text>
+  <text x="68" y="960" class="note">capacity IS NULL OR capacity &gt; 0 · startAt &lt; endAt · GiST EXCLUDE(resourceId =, tstzrange(startAt,endAt,'[)') &amp;&amp;) WHERE status = CONFIRMED</text>
+</svg>

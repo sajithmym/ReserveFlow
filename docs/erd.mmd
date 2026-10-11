@@ -1,0 +1,71 @@
+erDiagram
+  User ||--o{ Reservation : owns
+  Resource ||--o{ Reservation : reserved_for
+  User ||--o{ Account : authenticates_with
+  User ||--o{ Session : has
+  User {
+    uuid id PK
+    text email UK
+    text name
+    boolean emailVerified
+    text image "nullable"
+    Role role "ADMIN or MEMBER"
+    boolean isActive
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  Resource {
+    uuid id PK
+    text name
+    text description "nullable"
+    text category
+    text location "nullable"
+    integer capacity "nullable, positive"
+    boolean isActive
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  Reservation {
+    uuid id PK
+    uuid resourceId FK
+    uuid userId FK
+    text title
+    timestamptz startAt
+    timestamptz endAt
+    ReservationStatus status "CONFIRMED or CANCELLED"
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  Account {
+    uuid id PK
+    text accountId "unique together with providerId"
+    text providerId "credential for local accounts"
+    uuid userId FK
+    text password "nullable, Argon2id hash"
+    text accessToken "nullable"
+    text refreshToken "nullable"
+    text idToken "nullable"
+    timestamptz accessTokenExpiresAt "nullable"
+    timestamptz refreshTokenExpiresAt "nullable"
+    text scope "nullable"
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  Session {
+    uuid id PK
+    text token UK
+    uuid userId FK
+    timestamptz expiresAt
+    text ipAddress "nullable"
+    text userAgent "nullable"
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  Verification {
+    uuid id PK
+    text identifier
+    text value
+    timestamptz expiresAt
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
