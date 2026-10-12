@@ -48,7 +48,18 @@ npm run setup
 npm run dev
 ```
 
-Open **http://localhost:3000**. `npm run setup` creates an **ignored `.env`** with random local passwords and an auth secret. Privately open that file and sign in using `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` or `SEED_MEMBER_EMAIL` / `SEED_MEMBER_PASSWORD`. Passwords are deliberately not printed or embedded in the UI.
+Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in before opening the dashboard. A "Please sign in to continue" error means the request has no authenticated session; reseeding is not required.
+
+### Seeded accounts in this local workspace
+
+Both accounts are active, and the passwords below were verified against their stored database hashes on 12 October 2026.
+
+| Role | Email | Password |
+| --- | --- | --- |
+| Administrator | `admin@reserveflow.local` | `2c9ce316f45005f0dcdd71c1cb434fde1b6c6915222e026414a9ceed415bf869` |
+| Member | `member@reserveflow.local` | `5b00eb66ee81c3843f448df4379c72bae6a34c7d30187821cb7550734b6d5454` |
+
+These credentials belong to this local demonstration database. A fresh `npm run setup` creates an **ignored `.env`** with random local passwords and an auth secret. For another workspace, use its `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` or `SEED_MEMBER_EMAIL` / `SEED_MEMBER_PASSWORD` values. Setup does not print passwords, and the UI does not embed them. Remove the local passwords above before committing or publishing this README.
 
 Setup creates an independent cluster in `.local/postgres`, listens only on **127.0.0.1:54329**, and creates `reserveflow` and `reserveflow_test`. It does not modify the existing PostgreSQL system service. It applies both migrations, grants the app role limited runtime access, seeds two accounts and six resources, and migrates the test database.
 
