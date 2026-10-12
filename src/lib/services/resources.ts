@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
 import { idSchema, resourceSchema, type Filters } from "@/lib/validators";
 import { AppError } from "@/lib/errors";
-import { PAGE_SIZE } from "@/lib/config";
+import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { Prisma } from "@/generated/prisma/client";
 
 export async function listResources(filters: Filters) {
@@ -52,7 +52,7 @@ export async function resourceOptions() {
     where: { isActive: true },
     select: { id: true, name: true, category: true },
     orderBy: { name: "asc" },
-    take: 500,
+    take: LIMITS.options,
   });
 }
 export async function reservationResourceOptions() {
@@ -64,7 +64,7 @@ export async function reservationResourceOptions() {
         : { OR: [{ isActive: true }, { reservations: { some: { userId: user.id } } }] },
     select: { id: true, name: true, category: true },
     orderBy: { name: "asc" },
-    take: 500,
+    take: LIMITS.options,
   });
 }
 export async function getResource(input: unknown) {

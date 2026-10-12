@@ -21,7 +21,8 @@ const git = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-sta
   windowsHide: true,
 });
 if (git.status !== 0) throw new Error("Could not inspect Git-visible source paths.");
-const files = [...new Set(git.stdout.split("\0").filter(Boolean))];
+// Unstaged deletions still appear in git ls-files; scan only files present on disk.
+const files = [...new Set(git.stdout.split("\0").filter(Boolean))].filter(existsSync);
 function collect(directory) {
   if (!existsSync(directory)) return;
   for (const name of readdirSync(directory)) {

@@ -88,6 +88,20 @@ afterAll(async () => {
 });
 
 describe("real PostgreSQL booking integrity", () => {
+  it("restricts member filtering to administrators without changing booking ownership", async () => {
+    const booking = await createReservation(input());
+    expect(booking.userId).toBe(memberId);
+    await expect(
+      listReservations(filtersSchema.parse({ memberId: otherId })),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    state.actor = { ...actor, role: "ADMIN" };
+    expect(
+      (await listReservations(filtersSchema.parse({ memberId: memberId }))).reservations.map(
+        (r) => r.id,
+      ),
+    ).toEqual([booking.id]);
+    expect((await listReservations(filtersSchema.parse({ memberId: otherId }))).total).toBe(0);
+  });
   it("rejects an overlapping confirmed booking with a safe conflict", async () => {
     await createReservation(input());
     await expect(createReservation(input(30))).rejects.toSatisfy(

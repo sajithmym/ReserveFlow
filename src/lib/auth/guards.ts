@@ -30,3 +30,8 @@ export async function requireAdmin() {
   if (user.role !== "ADMIN") throw new AppError("FORBIDDEN", "Administrator access is required.");
   return user;
 }
+export async function requirePageAdmin() {
+  const user = await requirePageUser();
+  if (user.role !== "ADMIN") redirect("/");
+  return user;
+}

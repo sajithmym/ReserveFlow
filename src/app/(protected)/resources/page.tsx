@@ -3,7 +3,7 @@ import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { requirePageUser } from "@/lib/auth/guards";
 import { listResources } from "@/lib/services/resources";
 import { parseFilters } from "@/lib/validators";
-import { CATEGORIES } from "@/lib/config";
+import { CATEGORY_OPTIONS, LIMITS } from "@/config/settings";
 import { ResourceCard } from "@/components/resources/resource-card";
 import { PageHeading } from "@/components/ui/page-heading";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Pagination } from "@/components/ui/pagination";
 import { FilterError } from "@/components/ui/filter-error";
 import type { Metadata } from "next";
+
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export const metadata: Metadata = { title: "Resources" };
 export default async function ResourcesPage({
@@ -61,9 +63,10 @@ export default async function ResourcesPage({
             Search resources
           </label>
           <input
+            key={`q:${filters.q}`}
             id="q"
             name="q"
-            maxLength={100}
+            maxLength={LIMITS.search}
             defaultValue={filters.q}
             placeholder="Search by name or location…"
             className={`${inputClass} pl-10`}
@@ -72,17 +75,15 @@ export default async function ResourcesPage({
         <label htmlFor="category" className="sr-only">
           Filter by category
         </label>
-        <select
+        <SearchableSelect
+          key={`category:${filters.category}`}
           id="category"
           name="category"
           defaultValue={filters.category}
-          className={`${inputClass} w-full sm:w-48`}
-        >
-          <option value="">All categories</option>
-          {CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+          options={CATEGORY_OPTIONS}
+          placeholder="All categories"
+          className="w-full sm:w-48"
+        />
         <Button variant="outline">
           <SlidersHorizontal size={15} />
           Apply

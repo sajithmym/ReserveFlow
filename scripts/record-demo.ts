@@ -72,8 +72,8 @@ async function hold(caption: string, duration: number) {
 async function book(start: string, end: string, title: string) {
   await page.goto(`/reservations/new?resourceId=${resourceId}`);
   await page.getByLabel("Purpose of reservation").fill(title);
-  await page.getByLabel("Start date & time").fill(`${day}T${start}`);
-  await page.getByLabel("End date & time").fill(`${day}T${end}`);
+  await page.getByLabel("Start date & time", { exact: true }).fill(`${day}T${start}`);
+  await page.getByLabel("End date & time", { exact: true }).fill(`${day}T${end}`);
   await page.getByRole("button", { name: "Confirm reservation", exact: true }).click();
 }
 try {

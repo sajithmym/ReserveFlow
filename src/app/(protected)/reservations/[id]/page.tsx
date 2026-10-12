@@ -1,3 +1,5 @@
+import { DATE_FORMATS, TIME_ZONE_LABEL } from "@/config/settings";
+import { requirePageUser } from "@/lib/auth/guards";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, Clock3, MapPin, Pencil, UserRound } from "lucide-react";
 import { getReservation } from "@/lib/services/reservations";
@@ -13,6 +15,7 @@ export default async function ReservationDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requirePageUser();
   const { id } = await params;
   const booking = await pageRecord(() => getReservation(id));
   const now = new Date();
@@ -55,12 +58,12 @@ export default async function ReservationDetailPage({
           {[
             {
               label: "Start",
-              value: `${formatDate(booking.startAt, "EEE, d MMM yyyy")} · ${formatTime(booking.startAt)}`,
+              value: `${formatDate(booking.startAt, DATE_FORMATS.dateWithYear)} · ${formatTime(booking.startAt)}`,
               icon: CalendarDays,
             },
             {
               label: "End",
-              value: `${formatDate(booking.endAt, "EEE, d MMM yyyy")} · ${formatTime(booking.endAt)}`,
+              value: `${formatDate(booking.endAt, DATE_FORMATS.dateWithYear)} · ${formatTime(booking.endAt)}`,
               icon: Clock3,
             },
             { label: "Reserved by", value: booking.user.name, icon: UserRound },
@@ -80,8 +83,8 @@ export default async function ReservationDetailPage({
           ))}
         </dl>
         <p className="mt-6 text-[11px] text-stone-400">
-          All times in Asia/Colombo (UTC+05:30). Created{" "}
-          {formatDate(booking.createdAt, "d MMM yyyy")}.
+          {TIME_ZONE_LABEL}. Created {formatDate(booking.createdAt, DATE_FORMATS.shortDateWithYear)}
+          .
         </p>
         {!booking.resource.isActive && (
           <p className="mt-5 rounded-lg bg-amber-50 p-4 text-xs leading-5 text-amber-800">

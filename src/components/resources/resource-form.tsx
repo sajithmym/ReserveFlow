@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, Save } from "lucide-react";
 import { saveResourceAction } from "@/app/actions";
-import { CATEGORIES } from "@/lib/config";
+import { CATEGORIES, CATEGORY_OPTIONS, LIMITS } from "@/config/settings";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import type { ActionResult } from "@/lib/errors";
+
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type Initial = {
   id: string;
@@ -72,8 +74,8 @@ export function ResourceForm({ resource }: { resource?: Initial }) {
             id="name"
             name="name"
             required
-            minLength={2}
-            maxLength={100}
+            minLength={LIMITS.nameMin}
+            maxLength={LIMITS.name}
             defaultValue={resource?.name}
             placeholder="e.g. The Boardroom"
             className={inputClass}
@@ -83,16 +85,15 @@ export function ResourceForm({ resource }: { resource?: Initial }) {
         </Field>
         <div className="grid gap-6 sm:grid-cols-2">
           <Field name="category" label="Category" error={fields?.category}>
-            <select
+            <SearchableSelect
               id="category"
               name="category"
-              className={inputClass}
+              required
               defaultValue={resource?.category ?? CATEGORIES[0]}
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c}>{c}</option>
-              ))}
-            </select>
+              options={CATEGORY_OPTIONS}
+              aria-invalid={!!fields?.category}
+              aria-describedby={fields?.category ? "category-error" : undefined}
+            />
           </Field>
           <Field name="capacity" label="Capacity (optional)" error={fields?.capacity}>
             <input
@@ -100,7 +101,7 @@ export function ResourceForm({ resource }: { resource?: Initial }) {
               name="capacity"
               type="number"
               min={1}
-              max={10000}
+              max={LIMITS.capacity}
               defaultValue={resource?.capacity ?? ""}
               placeholder="Number of people"
               className={inputClass}
@@ -112,7 +113,7 @@ export function ResourceForm({ resource }: { resource?: Initial }) {
           <input
             id="location"
             name="location"
-            maxLength={160}
+            maxLength={LIMITS.location}
             defaultValue={resource?.location ?? ""}
             placeholder="e.g. Level 2 · East wing"
             className={inputClass}
@@ -122,7 +123,7 @@ export function ResourceForm({ resource }: { resource?: Initial }) {
           <textarea
             id="description"
             name="description"
-            maxLength={1000}
+            maxLength={LIMITS.description}
             rows={4}
             defaultValue={resource?.description ?? ""}
             placeholder="Facilities, collection instructions, or anything useful to know."

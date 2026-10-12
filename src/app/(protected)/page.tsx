@@ -1,3 +1,5 @@
+import { DATE_FORMATS, TIME_ZONE_LABEL } from "@/config/settings";
+import { requirePageUser } from "@/lib/auth/guards";
 import Link from "next/link";
 import {
   ArrowDownRight,
@@ -18,6 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ResourceVisual } from "@/components/resources/resource-visual";
 
 export default async function DashboardPage() {
+  await requirePageUser();
   const data = await getDashboard();
   const admin = data.user.role === "ADMIN";
   const metrics = [
@@ -91,13 +94,19 @@ export default async function DashboardPage() {
         <div className="relative z-10 flex items-center gap-4 rounded-xl border border-white/80 bg-white/60 px-5 py-4">
           <div className="rounded-lg bg-white px-3 py-2 text-center">
             <p className="text-[10px] font-semibold text-emerald-700 uppercase">
-              {formatDate(data.now, "MMM")}
+              {formatDate(data.now, DATE_FORMATS.shortMonth)}
             </p>
-            <p className="text-2xl font-semibold text-emerald-900">{formatDate(data.now, "dd")}</p>
+            <p className="text-2xl font-semibold text-emerald-900">
+              {formatDate(data.now, DATE_FORMATS.day)}
+            </p>
           </div>
           <div>
-            <p className="text-sm font-semibold text-emerald-950">{formatDate(data.now, "EEEE")}</p>
-            <p className="mt-1 text-[11px] text-stone-500">{formatDate(data.now, "d MMMM yyyy")}</p>
+            <p className="text-sm font-semibold text-emerald-950">
+              {formatDate(data.now, DATE_FORMATS.weekday)}
+            </p>
+            <p className="mt-1 text-[11px] text-stone-500">
+              {formatDate(data.now, DATE_FORMATS.full)}
+            </p>
             <p className="mt-1 text-[10px] text-stone-400">Sri Lanka time</p>
           </div>
         </div>
@@ -153,7 +162,7 @@ export default async function DashboardPage() {
           )}
           <div className="mt-4 flex items-center gap-2 text-[11px] text-stone-400">
             <Clock3 size={13} />
-            {formatTime(data.now)} · All times in Asia/Colombo (UTC+05:30)
+            {formatTime(data.now)} · {TIME_ZONE_LABEL}
           </div>
         </section>
         <aside>

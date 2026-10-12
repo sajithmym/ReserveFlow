@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Users,
 } from "lucide-react";
 import { authClient } from "@/lib/auth/client";
 import { cn, initials } from "@/lib/utils";
@@ -27,11 +28,13 @@ import {
 } from "@/components/ui/dialog";
 import type { ReactNode } from "react";
 
-const nav = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/resources", label: "Resources", icon: Grid2X2 },
-  { href: "/reservations", label: "Reservations", icon: CalendarDays },
-];
+import { NAVIGATION, TIME_ZONE, UTC_OFFSET_LABEL, LIMITS, APP_NAME } from "@/config/settings";
+const icons = {
+  overview: LayoutDashboard,
+  resources: Grid2X2,
+  reservations: CalendarDays,
+  members: Users,
+};
 export function Brand({ dark = false }: { dark?: boolean }) {
   return (
     <Link
@@ -55,6 +58,10 @@ export function AppShell({
   user: { name: string; email: string; role: string };
   children: ReactNode;
 }) {
+  const nav = NAVIGATION.filter((item) => !item.adminOnly || user.role === "ADMIN").map((item) => ({
+    ...item,
+    icon: icons[item.icon],
+  }));
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -186,7 +193,7 @@ export function AppShell({
                 </Button>
               </DialogTrigger>
               <DialogContent>
-                <DialogTitle className="mb-6 text-lg font-semibold">ReserveFlow</DialogTitle>
+                <DialogTitle className="mb-6 text-lg font-semibold">{APP_NAME}</DialogTitle>
                 <DialogDescription className="mb-4 text-xs text-stone-500">
                   {user.name} · {user.role === "ADMIN" ? "Administrator" : "Member"}
                 </DialogDescription>
@@ -228,14 +235,14 @@ export function AppShell({
               <input
                 id="global-search"
                 name="q"
-                maxLength={100}
+                maxLength={LIMITS.search}
                 placeholder="Search resources…"
                 className="h-9 w-52 rounded-lg border border-stone-200 bg-stone-50/70 pr-3 pl-9 text-xs outline-none focus:border-emerald-600"
               />
             </form>
             <span className="hidden items-center gap-1.5 text-xs text-stone-500 sm:inline-flex">
               <Clock3 size={14} />
-              UTC+05:30
+              {UTC_OFFSET_LABEL}
             </span>
             <span className="flex size-8 items-center justify-center rounded-full bg-emerald-100 text-[11px] font-semibold text-emerald-800">
               {initials(user.name)}
@@ -247,7 +254,7 @@ export function AppShell({
         </main>
         <footer className="mx-5 flex flex-wrap justify-between gap-2 border-t border-stone-200/70 py-5 text-[11px] text-stone-400 md:mx-9">
           <span>ReserveFlow · A little more organized.</span>
-          <span>All times shown in Asia/Colombo</span>
+          <span>All times shown in {TIME_ZONE}</span>
         </footer>
       </div>
     </div>

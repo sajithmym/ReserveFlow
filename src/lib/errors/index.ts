@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CONFLICT_MESSAGE } from "@/lib/config";
+import { CONFLICT_MESSAGE } from "@/config/settings";
 
 export type ErrorCode =
   | "UNAUTHENTICATED"

@@ -1,3 +1,4 @@
+import { requirePageUser } from "@/lib/auth/guards";
 import { PageHeading } from "@/components/ui/page-heading";
 import { ReservationForm } from "@/components/reservations/reservation-form";
 import { resourceOptions } from "@/lib/services/resources";
@@ -11,6 +12,7 @@ export default async function NewReservationPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  await requirePageUser();
   const params = await searchParams;
   const parsed =
     params.resourceId === undefined ? undefined : idSchema.safeParse(params.resourceId);

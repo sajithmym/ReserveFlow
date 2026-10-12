@@ -27,14 +27,15 @@ Server Components query real persistent data. Interactive forms call thin Server
 
 ## Features and permissions
 
-| Capability                             | Member                                                     | Administrator      |
-| -------------------------------------- | ---------------------------------------------------------- | ------------------ |
-| Browse resources                       | Active resources                                           | All resources      |
-| Add/edit/activate/deactivate resources | No                                                         | Yes                |
-| Create reservation                     | As self                                                    | As self            |
-| Read/edit/cancel reservations          | Own only                                                   | All                |
-| Dashboard reservation counts           | Own only                                                   | Organization-wide  |
-| Resource availability                  | Occupied intervals, without private purposes or identities | Occupied intervals |
+| Capability                               | Member                                                     | Administrator                   |
+| ---------------------------------------- | ---------------------------------------------------------- | ------------------------------- |
+| Manage member accounts, roles and access | No                                                         | Yes (archive preserves history) |
+| Browse resources                         | Active resources                                           | All resources                   |
+| Add/edit/activate/deactivate resources   | No                                                         | Yes                             |
+| Create reservation                       | As self                                                    | As self                         |
+| Read/edit/cancel reservations            | Own only                                                   | All                             |
+| Dashboard reservation counts             | Own only                                                   | Organization-wide               |
+| Resource availability                    | Occupied intervals, without private purposes or identities | Occupied intervals              |
 
 Resource name/category/location/description/capacity, resource search and category filters, reservation search/date/resource/status filters, bounded pagination, availability checks, rescheduling, cancellation confirmations, loading/error/empty states, and responsive navigation are included. Counts always come from PostgreSQL.
 
@@ -52,18 +53,18 @@ Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in 
 
 ### Seeded accounts in this local workspace
 
-Both accounts are active, and the passwords below were verified against their stored database hashes on 12 October 2026.
+The local seed provisions an administrator and a member. Their credentials are in the ignored `.env` file:
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Administrator | `admin@reserveflow.local` | `2c9ce316f45005f0dcdd71c1cb434fde1b6c6915222e026414a9ceed415bf869` |
-| Member | `member@reserveflow.local` | `5b00eb66ee81c3843f448df4379c72bae6a34c7d30187821cb7550734b6d5454` |
+| Role          | Email variable      | Password variable      |
+| ------------- | ------------------- | ---------------------- |
+| Administrator | `SEED_ADMIN_EMAIL`  | `SEED_ADMIN_PASSWORD`  |
+| Member        | `SEED_MEMBER_EMAIL` | `SEED_MEMBER_PASSWORD` |
 
-These credentials belong to this local demonstration database. A fresh `npm run setup` creates an **ignored `.env`** with random local passwords and an auth secret. For another workspace, use its `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` or `SEED_MEMBER_EMAIL` / `SEED_MEMBER_PASSWORD` values. Setup does not print passwords, and the UI does not embed them. Remove the local passwords above before committing or publishing this README.
+Open `.env` privately and use the corresponding values on the login page. A fresh `npm run setup` generates random local passwords and an auth secret. Setup does not print passwords, and the UI does not embed them. Keep actual passwords out of README, source code, and Git.
 
 Setup creates an independent cluster in `.local/postgres`, listens only on **127.0.0.1:54329**, and creates `reserveflow` and `reserveflow_test`. It does not modify the existing PostgreSQL system service. It applies both migrations, grants the app role limited runtime access, seeds two accounts and six resources, and migrates the test database.
 
-The seed adds three non-overlapping reservations on the next Sri Lanka calendar day. Rerunning it preserves existing records and password hashes, skips existing demonstration reservations, and does not reset user edits. Changing a password in `.env` after the first seed does **not** change the stored account password. For a different demo environment, use a new database and credentials rather than silently replacing accounts.
+The seed adds three non-overlapping reservations on the next Sri Lanka calendar day. Rerunning it preserves existing records and password hashes, skips existing demonstration reservations, and does not reset user edits. Changing a password in `.env` after the first seed does **not** change the stored account password. Administrators can explicitly replace a password from Members > Edit member. If you change a seeded account's password, also update its private `.env` seed value for subsequent browser tests. For a different demo environment, use a new database and credentials rather than silently replacing accounts.
 
 ```powershell
 npm run db:stop     # Stop only the isolated cluster; preserve its data
@@ -105,6 +106,16 @@ For a separate runtime identity, grant schema usage plus SELECT/INSERT/UPDATE on
 
 Do not commit `.env`, `.local`, browser traces, or credentials. `.env.example` contains placeholders only. There are no `NEXT_PUBLIC_` secrets.
 
+## Members and reusable controls
+
+Administrators can open **Members** to create accounts, search by name/email, filter by role/status, edit details and roles, set an initial or replacement password, deactivate/reactivate, and archive accounts. Passwords are hashed with Argon2id. Archive is a logical deletion using inactive status; the account and all reservations remain in PostgreSQL. Deactivation or changes to role, email, or password revoke existing sessions. Concurrent management operations preserve at least one active administrator.
+
+Reservation ownership still comes from the signed-in account. Members and administrators create their own reservations; booking forms do not accept `userId` or `role`. Member profiles link to reservation history, and administrators can filter reservations by member, including inactive accounts. Deactivating a member does not cancel or free their confirmed reservations.
+
+`src/config/settings.ts` is the single source for public app settings, navigation visibility, page/selector limits, validation limits, category/role/status options, booking defaults, date formats, locale, and time zone. Resources, members and reservations stay in PostgreSQL. Secrets stay in environment variables and are never imported into this module.
+
+The shared `SearchableSelect` supports search, arrow keys, Home/End, Enter, Escape, clearing, disabled options, and an empty state. Shared `DatePicker` and `DateTimePicker` retain native date/time editing and form validation while adding a keyboard-accessible calendar with month navigation. Calendar selection preserves the time in date/time fields. Desktop and mobile forms use the same controls.
+
 ## Booking correctness
 
 All timestamps are stored as **TIMESTAMPTZ**. Forms explicitly interpret dates in **Asia/Colombo (UTC+05:30)** and convert them to instants; the same zone is used to display them. Cross-midnight reservations are supported.
@@ -136,7 +147,7 @@ npm audit --omit=dev
 npm run check:secrets
 ```
 
-Browser tests use the actual app and PostgreSQL. Install the bundled browser once, or use a locally installed channel:
+Browser tests use the actual app and PostgreSQL. Playwright starts its own server, so choose a free local port or stop your ReserveFlow development server first. To explicitly reuse a running ReserveFlow server, set `PLAYWRIGHT_REUSE_SERVER=true`; tests verify the login page identity before entering credentials. Install the bundled browser once, or use a locally installed channel:
 
 ```powershell
 npx playwright install chromium
@@ -145,6 +156,16 @@ npm run test:e2e
 $env:PLAYWRIGHT_CHANNEL = 'chrome'
 npm run test:e2e
 ```
+
+When another application uses port 3000, run the browser suite on another local port:
+
+```powershell
+$env:PLAYWRIGHT_BASE_URL = 'http://localhost:3100'
+$env:PLAYWRIGHT_CHANNEL = 'msedge'
+npm run test:e2e
+```
+
+Playwright passes the selected origin to the app's `BETTER_AUTH_URL` for its server process. The private `.env` file stays unchanged. Only local HTTP origins are accepted for browser tests.
 
 The integration configuration refuses to run without an explicit `_test` database. It deletes only UUID-scoped test fixtures. It verifies actual SQL constraints, independent concurrent connections, service locking, permissions, invalid states, cancellation and conflicting edits. Browser tests create and remove their own resource/bookings in the demo database; use only a local demonstration environment for them. Never run them against production or another person's database.
 
@@ -156,7 +177,7 @@ Better Auth supplies opaque database-backed sessions, signed HttpOnly/SameSite c
 
 Next.js Server Actions retain their origin/host protections. The auth route bounds request bodies to 8 KiB; actions to 128 KiB. Basic security headers and a baseline CSP are present. Unexpected failures expose a generic message and log only an error class and trace identifier.
 
-This is a local technical assessment, **not an audited production platform**. Login rate limiting uses in-process memory and needs a shared store and trusted proxy/IP configuration for a multi-instance deployment. There is no public identity verification, password recovery, account admin UI, operational monitoring, or deployed HTTPS validation. The baseline CSP permits inline scripts/styles and development eval for Next compatibility; production should use nonces and a stricter policy. Limits on resource selectors/availability schedules keep reads bounded; a much larger organization would need server-side searchable selectors.
+This is a local technical assessment, **not an audited production platform**. Login rate limiting uses in-process memory and needs a shared store and trusted proxy/IP configuration for a multi-instance deployment. There is no public identity verification, self-service password recovery, operational monitoring, or deployed HTTPS validation. The baseline CSP permits inline scripts/styles and development eval for Next compatibility; production should use nonces and a stricter policy. Limits on resource selectors/availability schedules keep reads bounded; a much larger organization would need server-side searchable selectors.
 
 The npm audit and pinned override decisions are documented in the verification report. Do not run `npm audit fix --force` blindly: it proposes incompatible framework/tooling downgrades for some transitive findings.
 
@@ -166,7 +187,8 @@ The npm audit and pinned override decisions are documented in the verification r
 src/app/                  Protected pages, login, auth routes, server actions
 src/components/           Shell, forms, cards, tables, Radix UI primitives
 src/lib/auth/             Better Auth, password hashing, current-user guards
-src/lib/services/         Resource, reservation, and dashboard business logic
+src/config/settings.ts    Public UI, navigation, pagination, date and dropdown configuration
+src/lib/services/         Resource, reservation, member, and dashboard business logic
 src/lib/db/               Server-only Prisma client
 src/lib/validators/       Zod boundary schemas
 src/lib/time/             Sri Lanka time conversion and interval semantics

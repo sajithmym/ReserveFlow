@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dayBounds, fromLocalInput, overlaps, toLocalInput } from "@/lib/time";
 import { filtersSchema, reservationSchema, resourceSchema } from "@/lib/validators";
 import { AppError, publicError } from "@/lib/errors";
-import { CONFLICT_MESSAGE } from "@/lib/config";
+import { CONFLICT_MESSAGE } from "@/config/settings";
 
 const range = {
   resourceId: "10000000-0000-4000-8000-000000000001",

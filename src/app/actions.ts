@@ -5,9 +5,13 @@ import { requireUser } from "@/lib/auth/guards";
 import { publicError, type ActionResult } from "@/lib/errors";
 import * as resources from "@/lib/services/resources";
 import * as reservations from "@/lib/services/reservations";
+import * as members from "@/lib/services/members";
+import { CONFLICT_MESSAGE } from "@/config/settings";
 
 function refresh() {
-  ["/", "/resources", "/reservations"].forEach((path) => revalidatePath(path, "layout"));
+  ["/", "/resources", "/reservations", "/members"].forEach((path) =>
+    revalidatePath(path, "layout"),
+  );
 }
 async function mutate(
   operation: () => Promise<{ id: string }>,
@@ -60,9 +64,27 @@ export async function availabilityAction(
       available,
       message: available
         ? "This time slot is currently available. Availability is checked again when you confirm."
-        : "That resource is booked during the selected time. Try a different time.",
+        : CONFLICT_MESSAGE,
     };
   } catch (error) {
     return publicError(error);
   }
+}
+export async function saveMemberAction(id: string | null, input: unknown) {
+  return mutate(
+    () => (id ? members.updateMember(id, input) : members.createMember(input)),
+    id ? "Member updated." : "Member created.",
+  );
+}
+export async function memberStatusAction(id: string, active: boolean) {
+  return mutate(
+    () => members.setMemberActive(id, active),
+    active ? "Member activated." : "Member deactivated. Reservation history is retained.",
+  );
+}
+export async function archiveMemberAction(id: string) {
+  return mutate(
+    () => members.archiveMember(id),
+    "Member archived. Reservation history is retained.",
+  );
 }

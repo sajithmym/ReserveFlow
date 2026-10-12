@@ -1,3 +1,4 @@
+import { DATE_FORMATS } from "@/config/settings";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { formatDate, formatTime } from "@/lib/time";
@@ -48,8 +49,9 @@ export function ReservationTable({
                 <p className="font-medium text-stone-700">{formatDate(r.startAt)}</p>
                 <p className="mt-1 text-[11px] text-stone-500">
                   {formatTime(r.startAt)} –{" "}
-                  {formatDate(r.startAt, "yyyy-MM-dd") !== formatDate(r.endAt, "yyyy-MM-dd")
-                    ? `${formatDate(r.endAt, "d MMM")} `
+                  {formatDate(r.startAt, DATE_FORMATS.dateInput) !==
+                  formatDate(r.endAt, DATE_FORMATS.dateInput)
+                    ? `${formatDate(r.endAt, DATE_FORMATS.shortDate)} `
                     : ""}
                   {formatTime(r.endAt)}
                 </p>

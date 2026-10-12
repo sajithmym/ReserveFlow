@@ -6,10 +6,13 @@ import Link from "next/link";
 import { CalendarCheck2, CheckCircle2, Clock3, Loader2, ShieldCheck } from "lucide-react";
 import { availabilityAction, saveReservationAction } from "@/app/actions";
 import { fromLocalInput, toLocalInput } from "@/lib/time";
-import { TIME_ZONE_LABEL } from "@/lib/config";
+import { TIME_ZONE_LABEL, BOOKING_DEFAULTS, LIMITS } from "@/config/settings";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass } from "@/components/ui/field";
 import type { ActionResult } from "@/lib/errors";
+
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { DateTimePicker } from "@/components/ui/date-picker";
 
 type Booking = { id: string; resourceId: string; title: string; startAt: string; endAt: string };
 export function ReservationForm({
@@ -39,7 +42,11 @@ export function ReservationForm({
   const [endAt, setEndAt] = useState(
     booking
       ? toLocalInput(booking.endAt)
-      : toLocalInput(new Date(fromLocalInput(initialStart).getTime() + 3600000)),
+      : toLocalInput(
+          new Date(
+            fromLocalInput(initialStart).getTime() + BOOKING_DEFAULTS.durationMinutes * 60000,
+          ),
+        ),
   );
   const fields = result && !result.ok ? result.fields : undefined;
   const input = { resourceId, title, startAt, endAt };
@@ -101,32 +108,29 @@ export function ReservationForm({
             </p>
           </div>
           <Field name="resourceId" label="Resource" error={fields?.resourceId}>
-            <select
+            <SearchableSelect
               id="resourceId"
               name="resourceId"
               required
-              className={inputClass}
               value={resourceId}
+              aria-label="Resource"
               disabled={!!booking}
-              onChange={(e) => {
-                setResourceId(e.target.value);
+              options={resources.map((r) => ({ value: r.id, label: `${r.name} · ${r.category}` }))}
+              aria-invalid={!!fields?.resourceId}
+              aria-describedby={fields?.resourceId ? "resourceId-error" : undefined}
+              onValueChange={(value) => {
+                setResourceId(value);
                 changed();
               }}
-            >
-              {resources.map((r) => (
-                <option value={r.id} key={r.id}>
-                  {r.name} · {r.category}
-                </option>
-              ))}
-            </select>
+            />
           </Field>
           <Field name="title" label="Purpose of reservation" error={fields?.title}>
             <input
               id="title"
               name="title"
               required
-              minLength={3}
-              maxLength={160}
+              minLength={LIMITS.purposeMin}
+              maxLength={LIMITS.purpose}
               value={title}
               onChange={(e) => {
                 setTitle(e.target.value);
@@ -145,32 +149,32 @@ export function ReservationForm({
             </p>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field name="startAt" label="Start date & time" error={fields?.startAt}>
-                <input
+                <DateTimePicker
                   id="startAt"
                   name="startAt"
-                  type="datetime-local"
+                  aria-label="Start date & time"
                   required
                   value={startAt}
-                  onChange={(e) => {
-                    setStartAt(e.target.value);
+                  onValueChange={(value) => {
+                    setStartAt(value);
                     changed();
                   }}
-                  className={inputClass}
+                  aria-invalid={!!fields?.startAt}
                   aria-describedby={fields?.startAt ? "startAt-error" : undefined}
                 />
               </Field>
               <Field name="endAt" label="End date & time" error={fields?.endAt}>
-                <input
+                <DateTimePicker
                   id="endAt"
                   name="endAt"
-                  type="datetime-local"
+                  aria-label="End date & time"
                   required
                   value={endAt}
-                  onChange={(e) => {
-                    setEndAt(e.target.value);
+                  onValueChange={(value) => {
+                    setEndAt(value);
                     changed();
                   }}
-                  className={inputClass}
+                  aria-invalid={!!fields?.endAt}
                   aria-describedby={fields?.endAt ? "endAt-error" : undefined}
                 />
               </Field>

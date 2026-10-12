@@ -1,4 +1,5 @@
 "use client";
+import { LIMITS } from "@/config/settings";
 import { useState } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useRouter } from "next/navigation";
@@ -47,7 +48,7 @@ export function LoginForm() {
           type="email"
           autoComplete="username"
           required
-          maxLength={254}
+          maxLength={LIMITS.email}
           placeholder="you@company.com"
           className={inputClass}
         />
@@ -60,7 +61,7 @@ export function LoginForm() {
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
             required
-            maxLength={128}
+            maxLength={LIMITS.passwordMax}
             className={`${inputClass} pr-12`}
             placeholder="Enter your password"
           />

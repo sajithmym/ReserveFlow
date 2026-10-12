@@ -13,6 +13,11 @@ import { Pagination } from "@/components/ui/pagination";
 import { FilterError } from "@/components/ui/filter-error";
 import type { Metadata } from "next";
 
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { DatePicker } from "@/components/ui/date-picker";
+import { memberOptions } from "@/lib/services/members";
+import { LIMITS, RESERVATION_STATUS_OPTIONS, TIME_ZONE_LABEL } from "@/config/settings";
+
 export const metadata: Metadata = { title: "Reservations" };
 export default async function ReservationsPage({
   searchParams,
@@ -26,9 +31,10 @@ export default async function ReservationsPage({
   } catch {
     return <FilterError path="/reservations" />;
   }
-  const [{ reservations, total }, resources] = await Promise.all([
+  const [{ reservations, total }, resources, members] = await Promise.all([
     listReservations(filters),
     reservationResourceOptions(),
+    user.role === "ADMIN" ? memberOptions() : Promise.resolve([]),
   ]);
   return (
     <>
@@ -59,9 +65,10 @@ export default async function ReservationsPage({
             Search reservations
           </label>
           <input
+            key={`q:${filters.q}`}
             id="q"
             name="q"
-            maxLength={100}
+            maxLength={LIMITS.search}
             defaultValue={filters.q}
             placeholder="Search reservations…"
             className={`${inputClass} pl-10`}
@@ -70,47 +77,66 @@ export default async function ReservationsPage({
         <label htmlFor="resourceId" className="sr-only">
           Resource
         </label>
-        <select
+        <SearchableSelect
+          key={`resourceId:${filters.resourceId}`}
           id="resourceId"
           name="resourceId"
           defaultValue={filters.resourceId}
-          className={`${inputClass} w-full sm:w-44`}
-        >
-          <option value="">All resources</option>
-          {resources.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+          options={resources.map((r) => ({ value: r.id, label: r.name }))}
+          placeholder="All resources"
+          className="w-full sm:w-44"
+        />
         <label htmlFor="status" className="sr-only">
           Reservation status
         </label>
-        <select
+        <SearchableSelect
+          key={`status:${filters.status}`}
           id="status"
           name="status"
           defaultValue={filters.status}
-          className={`${inputClass} w-full sm:w-36`}
-        >
-          <option value="">All statuses</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+          options={RESERVATION_STATUS_OPTIONS}
+          placeholder="All statuses"
+          className="w-full sm:w-40"
+        />
+        {user.role === "ADMIN" && (
+          <>
+            <label htmlFor="memberId" className="sr-only">
+              Filter by member
+            </label>
+            <SearchableSelect
+              key={`memberId:${filters.memberId}`}
+              id="memberId"
+              name="memberId"
+              defaultValue={filters.memberId}
+              options={members.map((m) => ({
+                value: m.id,
+                label: `${m.name}${m.isActive ? "" : " (inactive)"}`,
+              }))}
+              placeholder="All members"
+              className="w-full sm:w-44"
+            />
+          </>
+        )}
         <label htmlFor="date" className="sr-only">
           Date in Sri Lanka time
         </label>
-        <input
+        <DatePicker
+          key={`date:${filters.date}`}
           id="date"
           name="date"
-          type="date"
+          aria-label="Date in Sri Lanka time"
           defaultValue={filters.date}
-          className={`${inputClass} w-full sm:w-40`}
+          className="w-full sm:w-44"
         />
         <Button variant="outline">
           <SlidersHorizontal size={15} />
           Apply
         </Button>
-        {(filters.q || filters.status || filters.date || filters.resourceId) && (
+        {(filters.q ||
+          filters.status ||
+          filters.date ||
+          filters.resourceId ||
+          filters.memberId) && (
           <Link href="/reservations" className="px-2 text-xs text-stone-500">
             Clear
           </Link>
@@ -120,7 +146,7 @@ export default async function ReservationsPage({
         <span>
           {total} reservation{total === 1 ? "" : "s"}
         </span>
-        <span className="text-[11px] text-stone-400">Sri Lanka time · UTC+05:30</span>
+        <span className="text-[11px] text-stone-400">{TIME_ZONE_LABEL}</span>
       </div>
       {reservations.length ? (
         <ReservationTable reservations={reservations} admin={user.role === "ADMIN"} />

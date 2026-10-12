@@ -1,4 +1,5 @@
 import "server-only";
+import { LIMITS } from "@/config/settings";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guards";
 import { dayBounds } from "@/lib/time";
@@ -26,7 +27,7 @@ export async function getDashboard() {
     db.reservation.findMany({
       where: { ...scope, status: "CONFIRMED", endAt: { gt: now } },
       orderBy: { startAt: "asc" },
-      take: 5,
+      take: LIMITS.dashboardEntries,
       include: { resource: true, user: { select: { name: true } } },
     }),
     db.resource.groupBy({

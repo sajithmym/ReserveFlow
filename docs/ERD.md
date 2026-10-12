@@ -6,6 +6,8 @@ The full Mermaid representation is in [erd.mmd](erd.mmd). It includes all six ac
 
 User and Resource each have a one-to-many relationship with Reservation. Account and Session belong to User. Reservation foreign keys restrict deletion; authentication foreign keys cascade on user deletion. The application provides no user or reservation hard-delete flow.
 
+Member management uses the existing User and Account tables. Deactivation and archive set `User.isActive` to false and revoke sessions without deleting identities or reservations. The member service serializes role/status changes with a PostgreSQL transaction advisory lock to retain at least one active administrator. No additional table or migration is needed for these features.
+
 Database integrity rules:
 
 - Resource capacity is nullable or strictly positive.

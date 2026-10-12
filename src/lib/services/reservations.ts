@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guards";
 import { idSchema, reservationSchema, type Filters } from "@/lib/validators";
 import { AppError } from "@/lib/errors";
-import { PAGE_SIZE } from "@/lib/config";
+import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { fromLocalInput } from "@/lib/time";
 import { Prisma } from "@/generated/prisma/client";
 import { getResource } from "./resources";
@@ -26,9 +26,12 @@ async function lockResource(tx: Prisma.TransactionClient, id: string, needsActiv
 }
 export async function listReservations(filters: Filters) {
   const user = await requireUser();
+  if (filters.memberId && user.role !== "ADMIN")
+    throw new AppError("FORBIDDEN", "Only administrators can filter by member.");
   const dateStart = filters.date ? fromLocalInput(`${filters.date}T00:00`) : undefined;
   const where: Prisma.ReservationWhereInput = {
     ...(user.role === "MEMBER" ? { userId: user.id } : {}),
+    ...(user.role === "ADMIN" && filters.memberId ? { userId: filters.memberId } : {}),
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.resourceId ? { resourceId: filters.resourceId } : {}),
     ...(filters.q
@@ -140,11 +143,11 @@ export async function resourceSchedule(id: unknown) {
       resourceId: resource.id,
       status: "CONFIRMED",
       endAt: { gt: now },
-      startAt: { lt: new Date(now.getTime() + 7 * 86400000) },
+      startAt: { lt: new Date(now.getTime() + LIMITS.scheduleDays * 86400000) },
     },
     select: { startAt: true, endAt: true },
     orderBy: { startAt: "asc" },
-    take: 30,
+    take: LIMITS.scheduleEntries,
   });
 }
 

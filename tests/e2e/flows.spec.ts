@@ -1,4 +1,7 @@
 import "dotenv/config";
+import { login } from "./helpers";
+import { TEST_ORIGIN } from "./environment";
+import { TIME_ZONE, DATE_FORMATS, APP_NAME } from "../../src/config/settings";
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
@@ -18,35 +21,19 @@ const resourceName = `E2E Room ${suffix}`;
 const purpose = `Planning ${suffix}`;
 let resourceId = "";
 let actionId = "";
-const day = formatInTimeZone(new Date(Date.now() + 86400000 * 12), "Asia/Colombo", "yyyy-MM-dd");
-async function login(page: Page, role: "ADMIN" | "MEMBER") {
-  try {
-    await page.goto("/login");
-    await page.getByLabel("Email address").fill(process.env[`SEED_${role}_EMAIL`]!);
-    await page.getByLabel("Password", { exact: true }).fill(process.env[`SEED_${role}_PASSWORD`]!);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(page.getByRole("heading", { name: /^Hello,/ })).toBeVisible({ timeout: 45000 });
-  } catch (error) {
-    // Playwright's automatic failure snapshot must never contain a credential value.
-    if (!page.isClosed())
-      await page.locator("#password").evaluateAll((fields) => {
-        for (const field of fields)
-          if (field instanceof HTMLInputElement) {
-            field.value = "";
-            field.removeAttribute("value");
-          }
-      });
-    throw error;
-  }
-}
+const day = formatInTimeZone(
+  new Date(Date.now() + 86400000 * 12),
+  TIME_ZONE,
+  DATE_FORMATS.dateInput,
+);
 async function book(page: Page, start: string, end: string, title = purpose) {
   await page.goto(`/reservations/new?resourceId=${resourceId}`);
   await page.getByLabel("Purpose of reservation").fill(title);
-  await page.getByLabel("Start date & time").fill(`${day}T${start}`);
-  await page.getByLabel("End date & time").fill(`${day}T${end}`);
+  await page.getByLabel("Start date & time", { exact: true }).fill(`${day}T${start}`);
+  await page.getByLabel("End date & time", { exact: true }).fill(`${day}T${end}`);
   await page.getByRole("button", { name: "Confirm reservation", exact: true }).click();
 }
-async function action(request: APIRequestContext, origin = "http://localhost:3000") {
+async function action(request: APIRequestContext, origin = TEST_ORIGIN) {
   return request.post("/resources/new", {
     headers: { "next-action": actionId, "content-type": "text/plain;charset=UTF-8", origin },
     data: JSON.stringify([
@@ -72,6 +59,8 @@ test.afterAll(async () => {
 test("admin and member flows, conflicts, persistence, ownership, and mobile navigation", async ({
   browser,
 }) => {
+  // This scenario spans both roles and many cold dev-server route compilations.
+  test.setTimeout(180000);
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
   await login(admin, "ADMIN");
@@ -127,8 +116,8 @@ test("admin and member flows, conflicts, persistence, ownership, and mobile navi
   await book(member, "10:00", "11:00", "Adjacent booking");
   await expect(member.getByRole("heading", { name: "Adjacent booking" })).toBeVisible();
   await member.goto(`/reservations/${bookingId}/edit`);
-  await member.getByLabel("Start date & time").fill(`${day}T12:00`);
-  await member.getByLabel("End date & time").fill(`${day}T13:00`);
+  await member.getByLabel("Start date & time", { exact: true }).fill(`${day}T12:00`);
+  await member.getByLabel("End date & time", { exact: true }).fill(`${day}T13:00`);
   await member.getByRole("button", { name: "Save reservation" }).click();
   await expect(member.getByRole("heading", { name: purpose, exact: true })).toBeVisible();
   await member.getByRole("button", { name: "Cancel reservation", exact: true }).click();
@@ -172,7 +161,7 @@ test("admin and member flows, conflicts, persistence, ownership, and mobile navi
   expect(
     await member.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBe(true);
-  await member.screenshot({ path: "docs/screenshots/mobile.png" });
+  await member.screenshot({ path: ".local/qa/reservations-mobile.png" });
   await memberContext.close();
   await adminContext.close();
 });
@@ -188,6 +177,7 @@ test("anonymous access, failed login, disabled users, auth CSRF, signup closure,
   try {
     await page.goto("/resources");
     await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveTitle(`Sign in · ${APP_NAME}`);
     const signup = await request.post("/api/auth/sign-up/email", {
       data: { name: "Forged", email: "forged@test.local", password: "UnusablePassword" },
     });

@@ -1,4 +1,5 @@
 import "server-only";
+import { APP_NAME, LIMITS, ROLES } from "@/config/settings";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { APIError } from "better-auth/api";
@@ -11,20 +12,20 @@ if (!process.env.BETTER_AUTH_URL)
   throw new Error("Configure the exact application origin in BETTER_AUTH_URL.");
 
 export const auth = betterAuth({
-  appName: "ReserveFlow",
+  appName: APP_NAME,
   baseURL: process.env.BETTER_AUTH_URL,
   secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(db, { provider: "postgresql", transaction: true }),
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
-    minPasswordLength: 12,
-    maxPasswordLength: 128,
+    minPasswordLength: LIMITS.passwordMin,
+    maxPasswordLength: LIMITS.passwordMax,
     password: { hash: hashPassword, verify: verifyPassword },
   },
   user: {
     additionalFields: {
-      role: { type: ["ADMIN", "MEMBER"], defaultValue: "MEMBER", input: false },
+      role: { type: [...ROLES], defaultValue: "MEMBER", input: false },
       isActive: { type: "boolean", defaultValue: true, input: false },
     },
   },

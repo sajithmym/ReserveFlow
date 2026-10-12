@@ -1,6 +1,9 @@
+import { requirePageUser } from "@/lib/auth/guards";
+import { TIME_ZONE_LABEL, TIME_ZONE } from "@/config/settings";
 import { CalendarCheck2, Clock3, ShieldCheck, Users } from "lucide-react";
 import { PageHeading } from "@/components/ui/page-heading";
-export default function HelpPage() {
+export default async function HelpPage() {
+  await requirePageUser();
   const items = [
     {
       icon: CalendarCheck2,
@@ -10,7 +13,7 @@ export default function HelpPage() {
     {
       icon: Clock3,
       title: "One shared time zone",
-      copy: "Every date and time uses Sri Lanka time, Asia/Colombo (UTC+05:30). Reservations can cross midnight. Your confirmation shows the full start and end dates.",
+      copy: `Every date and time uses ${TIME_ZONE_LABEL} (${TIME_ZONE}). Reservations can cross midnight. Your confirmation shows the full start and end dates.`,
     },
     {
       icon: Users,

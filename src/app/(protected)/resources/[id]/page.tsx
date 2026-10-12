@@ -1,3 +1,4 @@
+import { DATE_FORMATS, LIMITS, TIME_ZONE_LABEL } from "@/config/settings";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, MapPin, Pencil, Plus, Users } from "lucide-react";
 import { requirePageUser } from "@/lib/auth/guards";
@@ -87,8 +88,8 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
             Upcoming occupied times
           </h2>
           <p className="mt-2 text-xs leading-5 text-stone-500">
-            Next 7 days · Sri Lanka time (UTC+05:30). Other team members’ reservation details stay
-            private.
+            Next {LIMITS.scheduleDays} days · {TIME_ZONE_LABEL}. Other team members’ reservation
+            details stay private.
           </p>
           <div className="mt-5 divide-y divide-stone-100">
             {schedule.length ? (
@@ -97,7 +98,8 @@ export default async function ResourceDetailPage({ params }: { params: Promise<{
                   <p className="text-xs font-medium text-stone-700">{formatDate(slot.startAt)}</p>
                   <p className="mt-1 text-xs text-stone-500">
                     {formatTime(slot.startAt)} –{" "}
-                    {formatDate(slot.startAt, "yyyy-MM-dd") !== formatDate(slot.endAt, "yyyy-MM-dd")
+                    {formatDate(slot.startAt, DATE_FORMATS.dateInput) !==
+                    formatDate(slot.endAt, DATE_FORMATS.dateInput)
                       ? `${formatDate(slot.endAt)} `
                       : ""}
                     {formatTime(slot.endAt)}

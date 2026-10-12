@@ -1,5 +1,5 @@
 import { Armchair, CarFront, Monitor, Presentation, Shapes } from "lucide-react";
-import { CATEGORY_STYLES } from "@/lib/config";
+import { CATEGORY_STYLES } from "@/config/settings";
 export function ResourceVisual({
   category,
   compact = false,

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "./button";
-import { PAGE_SIZE } from "@/lib/config";
+import { PAGE_SIZE } from "@/config/settings";
 import type { Filters } from "@/lib/validators";
 
 export function Pagination({

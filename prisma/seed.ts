@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { TIME_ZONE, DATE_FORMATS, LIMITS } from "../src/config/settings";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
@@ -13,9 +14,9 @@ const db = new PrismaClient({
 const credentials = z
   .object({
     SEED_ADMIN_EMAIL: z.email(),
-    SEED_ADMIN_PASSWORD: z.string().min(12).max(128),
+    SEED_ADMIN_PASSWORD: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
     SEED_MEMBER_EMAIL: z.email(),
-    SEED_MEMBER_PASSWORD: z.string().min(12).max(128),
+    SEED_MEMBER_PASSWORD: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
   })
   .parse(process.env);
 if (credentials.SEED_ADMIN_EMAIL === credentials.SEED_MEMBER_EMAIL)
@@ -95,7 +96,7 @@ try {
   for (const resource of seeds)
     await db.resource.upsert({ where: { id: resource.id }, create: resource, update: {} });
   const tomorrow = new Date(Date.now() + 86400000);
-  const day = formatInTimeZone(tomorrow, "Asia/Colombo", "yyyy-MM-dd");
+  const day = formatInTimeZone(tomorrow, TIME_ZONE, DATE_FORMATS.dateInput);
   const bookings = [
     {
       id: "00000000-0000-4000-8000-000000000011",
@@ -124,8 +125,8 @@ try {
   ];
   for (const { start, end, ...booking } of bookings) {
     if (await db.reservation.findUnique({ where: { id: booking.id } })) continue;
-    const startAt = fromZonedTime(`${day}T${start}`, "Asia/Colombo");
-    const endAt = fromZonedTime(`${day}T${end}`, "Asia/Colombo");
+    const startAt = fromZonedTime(`${day}T${start}`, TIME_ZONE);
+    const endAt = fromZonedTime(`${day}T${end}`, TIME_ZONE);
     // Keep a rerun safe even after a user has booked this demonstration interval.
     if (
       await db.reservation.findFirst({
