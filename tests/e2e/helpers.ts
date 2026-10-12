@@ -1,14 +1,24 @@
 import { expect, type Page } from "@playwright/test";
 import { APP_NAME } from "../../src/config/settings";
+import { getDemoAccounts } from "../../scripts/demo-accounts.mjs";
+async function clearPassword(page: Page) {
+  if (!page.isClosed())
+    await page.locator("#password").evaluateAll((fields) => {
+      for (const field of fields)
+        if (field instanceof HTMLInputElement) {
+          field.value = "";
+          field.removeAttribute("value");
+        }
+    });
+}
 export async function login(page: Page, role: "ADMIN" | "MEMBER") {
+  const account = getDemoAccounts()[role];
   try {
     await page.goto("/login");
     await expect(page).toHaveTitle(`Sign in · ${APP_NAME}`);
     for (let attempt = 0; attempt < 2; attempt++) {
-      await page.getByLabel("Email address").fill(process.env[`SEED_${role}_EMAIL`]!);
-      await page
-        .getByLabel("Password", { exact: true })
-        .fill(process.env[`SEED_${role}_PASSWORD`]!);
+      await page.getByLabel("Email address").fill(account.email);
+      await page.getByLabel("Password", { exact: true }).fill(account.password);
       const responsePromise = page.waitForResponse(
         (response) =>
           response.url().endsWith("/api/auth/sign-in/email") &&
@@ -16,7 +26,12 @@ export async function login(page: Page, role: "ADMIN" | "MEMBER") {
       );
       await page.getByRole("button", { name: "Sign in", exact: true }).click();
       const response = await responsePromise;
-      if (response.status() !== 429 || attempt === 1) break;
+      // Clear before assertions: Playwright captures accessibility snapshots when they fail.
+      await clearPassword(page);
+      if (response.status() !== 429 || attempt === 1) {
+        expect(response.status()).toBe(200);
+        break;
+      }
       await expect(page.getByRole("alert").filter({ hasText: "Too many attempts" })).toBeVisible();
       await page.getByLabel("Password", { exact: true }).fill("");
       // Several scenarios share localhost's IP. Respect the real server's retry window.
@@ -27,13 +42,6 @@ export async function login(page: Page, role: "ADMIN" | "MEMBER") {
     }
     await expect(page.getByRole("heading", { name: /^Hello,/ })).toBeVisible({ timeout: 45000 });
   } finally {
-    if (!page.isClosed())
-      await page.locator("#password").evaluateAll((fields) => {
-        for (const field of fields)
-          if (field instanceof HTMLInputElement) {
-            field.value = "";
-            field.removeAttribute("value");
-          }
-      });
+    await clearPassword(page);
   }
 }

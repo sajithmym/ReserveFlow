@@ -2,11 +2,10 @@ import "dotenv/config";
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
+import { DEMO_ACCOUNTS } from "./demo-accounts.mjs";
 
 const keys = [
   "BETTER_AUTH_SECRET",
-  "SEED_ADMIN_PASSWORD",
-  "SEED_MEMBER_PASSWORD",
   "LOCAL_DB_OWNER_PASSWORD",
   "LOCAL_DB_APP_PASSWORD",
   "DATABASE_URL",
@@ -23,12 +22,16 @@ const git = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-sta
 if (git.status !== 0) throw new Error("Could not inspect Git-visible source paths.");
 // Unstaged deletions still appear in git ls-files; scan only files present on disk.
 const files = [...new Set(git.stdout.split("\0").filter(Boolean))].filter(existsSync);
+const browserFiles = [];
 function collect(directory) {
   if (!existsSync(directory)) return;
   for (const name of readdirSync(directory)) {
     const file = join(directory, name);
     if (statSync(file).isDirectory()) collect(file);
-    else if (/\.(js|json|map)$/.test(file)) files.push(file);
+    else if (/\.(js|json|map)$/.test(file)) {
+      files.push(file);
+      browserFiles.push(file);
+    }
   }
 }
 collect(".next/static");
@@ -36,6 +39,12 @@ const exposed = files.filter((file) => {
   const content = readFileSync(file, "utf8");
   return values.some((value) => content.includes(value));
 });
+// Demo logins are deliberately public in docs/scripts, but do not belong in app bundles.
+const demoPasswords = Object.values(DEMO_ACCOUNTS).map((account) => account.password);
+for (const file of browserFiles) {
+  const content = readFileSync(file, "utf8");
+  if (demoPasswords.some((password) => content.includes(password))) exposed.push(file);
+}
 if (exposed.length) {
   console.error("Private configuration was found in these source/browser files:", exposed);
   process.exit(1);

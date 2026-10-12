@@ -37,7 +37,7 @@ export function MemberForm({ member }: { member?: Member }) {
           });
           setResult(response);
           if (response.ok) {
-            router.push(`/members/${response.id}`);
+            router.push(member ? "/members" : `/members/${response.id}`);
             router.refresh();
           }
         } catch {
@@ -139,7 +139,15 @@ export function MemberForm({ member }: { member?: Member }) {
         )}
         <div className="flex justify-end gap-3 border-t border-stone-100 pt-5">
           <Button asChild variant="outline">
-            <Link href={member ? `/members/${member.id}` : "/members"}>Cancel</Link>
+            <Link
+              href="/members"
+              aria-disabled={pending}
+              onClick={(event) => {
+                if (pending) event.preventDefault();
+              }}
+            >
+              Cancel
+            </Link>
           </Button>
           <Button disabled={pending}>
             {pending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

@@ -5,21 +5,21 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { z } from "zod";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
+import { getDemoAccounts } from "../scripts/demo-accounts.mjs";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({
     connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
   }),
 });
+const accountSchema = z.object({
+  email: z.email(),
+  password: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
+});
 const credentials = z
-  .object({
-    SEED_ADMIN_EMAIL: z.email(),
-    SEED_ADMIN_PASSWORD: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
-    SEED_MEMBER_EMAIL: z.email(),
-    SEED_MEMBER_PASSWORD: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
-  })
-  .parse(process.env);
-if (credentials.SEED_ADMIN_EMAIL === credentials.SEED_MEMBER_EMAIL)
+  .object({ ADMIN: accountSchema, MEMBER: accountSchema })
+  .parse(getDemoAccounts());
+if (credentials.ADMIN.email === credentials.MEMBER.email)
   throw new Error("Seed accounts must have different emails.");
 const seeds = [
   {
@@ -82,14 +82,14 @@ const seeds = [
 ] as const;
 try {
   const admin = await provision(
-    credentials.SEED_ADMIN_EMAIL,
-    credentials.SEED_ADMIN_PASSWORD,
+    credentials.ADMIN.email,
+    credentials.ADMIN.password,
     "Alex Morgan",
     "ADMIN",
   );
   const member = await provision(
-    credentials.SEED_MEMBER_EMAIL,
-    credentials.SEED_MEMBER_PASSWORD,
+    credentials.MEMBER.email,
+    credentials.MEMBER.password,
     "Sam Perera",
     "MEMBER",
   );
@@ -142,7 +142,7 @@ try {
     await db.reservation.create({ data: { ...booking, startAt, endAt } });
   }
   console.log(
-    "Seed complete: two environment-provisioned accounts, six resources, and non-overlapping reservations. Credentials were not printed.",
+    "Seed complete: two local demo accounts, six resources, and non-overlapping reservations. Login details are in README.md and SETUP_AND_RUN.txt.",
   );
 } finally {
   await db.$disconnect();

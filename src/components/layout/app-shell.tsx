@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -10,12 +9,11 @@ import {
   Grid2X2,
   Layers3,
   LayoutDashboard,
-  LogOut,
   Menu,
   Search,
   Users,
 } from "lucide-react";
-import { authClient } from "@/lib/auth/client";
+import { SignOutButton } from "./sign-out-button";
 import { cn, initials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,9 +61,6 @@ export function AppShell({
     icon: icons[item.icon],
   }));
   const pathname = usePathname();
-  const router = useRouter();
-  const [signingOut, setSigningOut] = useState(false);
-  const [error, setError] = useState("");
   const active = nav.find((n) => (n.href === "/" ? pathname === "/" : pathname.startsWith(n.href)));
   const navLinks = (mobile = false) => (
     <nav aria-label={mobile ? "Mobile navigation" : "Main navigation"} className="space-y-1.5">
@@ -97,19 +92,6 @@ export function AppShell({
       })}
     </nav>
   );
-  async function signOut() {
-    setSigningOut(true);
-    setError("");
-    try {
-      const result = await authClient.signOut();
-      if (result.error) throw new Error();
-      router.push("/login");
-      router.refresh();
-    } catch {
-      setError("Could not sign out. Please try again.");
-      setSigningOut(false);
-    }
-  }
   return (
     <div className="min-h-screen bg-[#f8f9f7]">
       <a
@@ -160,21 +142,8 @@ export function AppShell({
                   {user.role === "ADMIN" ? "Administrator" : "Member"}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Sign out"
-                disabled={signingOut}
-                onClick={signOut}
-              >
-                <LogOut size={17} />
-              </Button>
+              <SignOutButton iconOnly />
             </div>
-            {error && (
-              <p role="alert" className="mt-2 text-xs text-red-700">
-                {error}
-              </p>
-            )}
           </div>
         </div>
       </aside>
@@ -198,20 +167,7 @@ export function AppShell({
                   {user.name} · {user.role === "ADMIN" ? "Administrator" : "Member"}
                 </DialogDescription>
                 {navLinks(true)}
-                <Button
-                  variant="outline"
-                  className="mt-6 w-full"
-                  onClick={signOut}
-                  disabled={signingOut}
-                >
-                  <LogOut size={17} />
-                  Sign out
-                </Button>
-                {error && (
-                  <p role="alert" className="mt-3 text-sm text-red-700">
-                    {error}
-                  </p>
-                )}
+                <SignOutButton />
               </DialogContent>
             </Dialog>
             <p className="text-sm text-stone-400">

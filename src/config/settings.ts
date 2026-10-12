@@ -43,7 +43,13 @@ export const BOOKING_DEFAULTS = {
   roundingMinutes: 30,
   startTime: "09:00",
 } as const;
-export const UI_SETTINGS = { locale: "en-GB", weekStartsOn: 1, calendarDays: 42 } as const;
+export const UI_SETTINGS = {
+  locale: "en-GB",
+  weekStartsOn: 1,
+  calendarDays: 42,
+  calendarYearsBefore: 100,
+  calendarYearsAfter: 20,
+} as const;
 export const CATEGORIES = ["Meeting room", "Workspace", "Equipment", "Vehicle", "Other"] as const;
 export const CATEGORY_OPTIONS = CATEGORIES.map((value) => ({ value, label: value }));
 export const ROLES = ["ADMIN", "MEMBER"] as const;

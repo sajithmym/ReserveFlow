@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Eye, Pencil, Plus, Search } from "lucide-react";
+import { ConfirmAction } from "@/components/ui/confirm-action";
 import { requirePageAdmin } from "@/lib/auth/guards";
 import { listMembers } from "@/lib/services/members";
 import { parseFilters } from "@/lib/validators";
@@ -136,13 +137,32 @@ export default async function MembersPage({
                     </Link>
                   </td>
                   <td className="px-5 py-4">
-                    <Link
-                      href={`/members/${member.id}/edit`}
-                      className="text-xs font-semibold text-emerald-700"
-                      aria-label={`Edit ${member.name}`}
-                    >
-                      Edit
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <Button asChild variant="ghost" size="icon">
+                        <Link
+                          href={`/members/${member.id}`}
+                          aria-label={`View ${member.name}`}
+                          title={`View ${member.name}`}
+                        >
+                          <Eye size={17} aria-hidden="true" />
+                        </Link>
+                      </Button>
+                      <Button asChild variant="ghost" size="icon">
+                        <Link
+                          href={`/members/${member.id}/edit`}
+                          aria-label={`Edit ${member.name}`}
+                          title={`Edit ${member.name}`}
+                        >
+                          <Pencil size={17} aria-hidden="true" />
+                        </Link>
+                      </Button>
+                      <ConfirmAction
+                        id={member.id}
+                        kind="member-archive"
+                        iconOnly
+                        memberName={member.name}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}

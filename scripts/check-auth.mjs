@@ -1,11 +1,13 @@
 import "dotenv/config";
+import { getDemoAccounts } from "./demo-accounts.mjs";
+const { ADMIN } = getDemoAccounts();
 const base = process.env.BETTER_AUTH_URL;
 const response = await fetch(`${base}/api/auth/sign-in/email`, {
   method: "POST",
   headers: { "content-type": "application/json", origin: base },
   body: JSON.stringify({
-    email: process.env.SEED_ADMIN_EMAIL,
-    password: process.env.SEED_ADMIN_PASSWORD,
+    email: ADMIN.email,
+    password: ADMIN.password,
   }),
 });
 const cookie = response.headers

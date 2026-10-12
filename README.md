@@ -53,18 +53,18 @@ Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in 
 
 ### Seeded accounts in this local workspace
 
-The local seed provisions an administrator and a member. Their credentials are in the ignored `.env` file:
+The local seed provisions these fixed demonstration accounts:
 
-| Role          | Email variable      | Password variable      |
-| ------------- | ------------------- | ---------------------- |
-| Administrator | `SEED_ADMIN_EMAIL`  | `SEED_ADMIN_PASSWORD`  |
-| Member        | `SEED_MEMBER_EMAIL` | `SEED_MEMBER_PASSWORD` |
+| Role          | Email                      | Password                                                           |
+| ------------- | -------------------------- | ------------------------------------------------------------------ |
+| Administrator | `admin@reserveflow.local`  | `2c9ce316f45005f0dcdd71c1cb434fde1b6c6915222e026414a9ceed415bf869` |
+| Member        | `member@reserveflow.local` | `5b00eb66ee81c3843f448df4379c72bae6a34c7d30187821cb7550734b6d5454` |
 
-Open `.env` privately and use the corresponding values on the login page. A fresh `npm run setup` generates random local passwords and an auth secret. Setup does not print passwords, and the UI does not embed them. Keep actual passwords out of README, source code, and Git.
+These are intentionally published local-demo credentials. Their single definition is `scripts/demo-accounts.mjs`; the seed and local verification tools use it. Seed account passwords are not stored in `.env`. Setup still generates private database passwords and the authentication secret there. The seed refuses remote databases and production mode.
 
 Setup creates an independent cluster in `.local/postgres`, listens only on **127.0.0.1:54329**, and creates `reserveflow` and `reserveflow_test`. It does not modify the existing PostgreSQL system service. It applies both migrations, grants the app role limited runtime access, seeds two accounts and six resources, and migrates the test database.
 
-The seed adds three non-overlapping reservations on the next Sri Lanka calendar day. Rerunning it preserves existing records and password hashes, skips existing demonstration reservations, and does not reset user edits. Changing a password in `.env` after the first seed does **not** change the stored account password. Administrators can explicitly replace a password from Members > Edit member. If you change a seeded account's password, also update its private `.env` seed value for subsequent browser tests. For a different demo environment, use a new database and credentials rather than silently replacing accounts.
+The seed adds three non-overlapping reservations on the next Sri Lanka calendar day. Rerunning it preserves existing records and password hashes, skips existing demonstration reservations, and does not reset user edits. Administrators can explicitly replace a password from Members > Edit member. To restore the documented passwords on the isolated local demo, run `npm run db:demo-passwords`; this revokes only those two accounts' sessions and preserves their identities and reservations. Regular seeding never resets stored passwords.
 
 ```powershell
 npm run db:stop     # Stop only the isolated cluster; preserve its data
@@ -72,11 +72,13 @@ npm run db:local    # Restart it
 npm run db:seed     # Idempotent seed
 ```
 
+If Better Auth or Prisma reports `P1001` / "Can't reach database server at 127.0.0.1:54329", restart the isolated cluster with `npm run db:local`, then retry the page or sign-in. This cluster does not start automatically after a reboot; `npm run dev` starts only Next.js. For subsequent development sessions, run `npm run db:local` before `npm run dev`. Restarting the cluster retains existing accounts and reservation history.
+
 The local bootstrap owner is a development-only database superuser. The runtime `reserveflow_app` role has no schema-changing privileges or resource/reservation deletion permission. Production provisioning should use a narrowly scoped migration owner with just the necessary extension privileges.
 
-## Using an existing PostgreSQL server
+## Using an existing local PostgreSQL server
 
-1. Create a dedicated empty database (and a separate test database ending in `_test`). Ensure the migration identity can install `btree_gist`.
+1. On a PostgreSQL server running on this PC (`localhost` / `127.0.0.1`), create a dedicated empty database (and a separate test database ending in `_test`). Ensure the migration identity can install `btree_gist`.
 2. Copy `.env.example` to `.env`, set `LOCAL_POSTGRES=false`, and replace all placeholders with unique private values.
 3. Set `MIGRATION_DATABASE_URL` for the schema owner and `DATABASE_URL` for the app's runtime identity. Set `TEST_DATABASE_URL` to the isolated test database. Provision the runtime role separately if using different identities.
 4. Run:
@@ -97,14 +99,12 @@ For a separate runtime identity, grant schema usage plus SELECT/INSERT/UPDATE on
 | `TEST_DATABASE_URL`                                | Explicitly isolated database ending in `_test`                            |
 | `BETTER_AUTH_URL`                                  | Exact app origin, e.g. `http://localhost:3000`; HTTPS in production       |
 | `BETTER_AUTH_SECRET`                               | High entropy secret of at least 32 characters                             |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`          | Administrator provisioning; password 12–128 characters                    |
-| `SEED_MEMBER_EMAIL`, `SEED_MEMBER_PASSWORD`        | Member provisioning; different email/password                             |
 | `LOCAL_POSTGRES`                                   | `true` only for the isolated local cluster helper                         |
 | `LOCAL_DB_OWNER_PASSWORD`, `LOCAL_DB_APP_PASSWORD` | Private bootstrap credentials generated by setup                          |
 | `PG_BIN`                                           | Optional directory containing PostgreSQL executables                      |
 | `PLAYWRIGHT_CHANNEL`                               | Optional installed browser channel such as `chrome` or `msedge` for tests |
 
-Do not commit `.env`, `.local`, browser traces, or credentials. `.env.example` contains placeholders only. There are no `NEXT_PUBLIC_` secrets.
+Keep `.env`, `.local`, browser traces, and private credentials out of Git. The explicitly published demonstration account passwords above are public local-demo values. `.env.example` contains placeholders only. There are no `NEXT_PUBLIC_` secrets.
 
 ## Members and reusable controls
 
@@ -114,7 +114,9 @@ Reservation ownership still comes from the signed-in account. Members and admini
 
 `src/config/settings.ts` is the single source for public app settings, navigation visibility, page/selector limits, validation limits, category/role/status options, booking defaults, date formats, locale, and time zone. Resources, members and reservations stay in PostgreSQL. Secrets stay in environment variables and are never imported into this module.
 
-The shared `SearchableSelect` supports search, arrow keys, Home/End, Enter, Escape, clearing, disabled options, and an empty state. Shared `DatePicker` and `DateTimePicker` retain native date/time editing and form validation while adding a keyboard-accessible calendar with month navigation. Calendar selection preserves the time in date/time fields. Desktop and mobile forms use the same controls.
+The members list provides labeled View, Edit, and Delete icons. Delete asks for confirmation and archives the account while retaining its reservations; the account remains visible as inactive and can be reactivated. Saving or cancelling an edit returns to the members list. Desktop and mobile sign-out controls ask for confirmation before ending the session.
+
+The shared `SearchableSelect` supports search, arrow keys, Home/End, Enter, Escape, clearing, disabled options, and an empty state. Shared `DatePicker` and `DateTimePicker` retain native date/time editing and form validation while adding a keyboard-accessible calendar with month/year dropdowns, previous/next month buttons, a highlighted current day, and a Today shortcut in Sri Lanka time. Date limits apply to calendar navigation and selection. Arrow keys move between days; Page Up/Down changes the month and Shift+Page Up/Down changes the year. Calendar selection preserves the time in date/time fields. Desktop and mobile forms use the same controls.
 
 ## Booking correctness
 
@@ -177,7 +179,7 @@ Better Auth supplies opaque database-backed sessions, signed HttpOnly/SameSite c
 
 Next.js Server Actions retain their origin/host protections. The auth route bounds request bodies to 8 KiB; actions to 128 KiB. Basic security headers and a baseline CSP are present. Unexpected failures expose a generic message and log only an error class and trace identifier.
 
-This is a local technical assessment, **not an audited production platform**. Login rate limiting uses in-process memory and needs a shared store and trusted proxy/IP configuration for a multi-instance deployment. There is no public identity verification, self-service password recovery, operational monitoring, or deployed HTTPS validation. The baseline CSP permits inline scripts/styles and development eval for Next compatibility; production should use nonces and a stricter policy. Limits on resource selectors/availability schedules keep reads bounded; a much larger organization would need server-side searchable selectors.
+The documented seed account passwords are public and restricted to local development. A hosted environment must provision different private accounts; the demo seed refuses remote database hosts and production mode. This is a local technical assessment, **not an audited production platform**. Login rate limiting uses in-process memory and needs a shared store and trusted proxy/IP configuration for a multi-instance deployment. There is no public identity verification, self-service password recovery, operational monitoring, or deployed HTTPS validation. The baseline CSP permits inline scripts/styles and development eval for Next compatibility; production should use nonces and a stricter policy. Limits on resource selectors/availability schedules keep reads bounded; a much larger organization would need server-side searchable selectors.
 
 The npm audit and pinned override decisions are documented in the verification report. Do not run `npm audit fix --force` blindly: it proposes incompatible framework/tooling downgrades for some transitive findings.
 

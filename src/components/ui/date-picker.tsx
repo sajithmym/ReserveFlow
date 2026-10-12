@@ -1,6 +1,14 @@
 "use client";
-import { useRef, useState } from "react";
-import { addDays, addMonths, format, startOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { useId, useRef, useState } from "react";
+import {
+  addDays,
+  addMonths,
+  format,
+  startOfMonth,
+  startOfWeek,
+  endOfWeek,
+  endOfMonth,
+} from "date-fns";
 import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { DATE_FORMATS, UI_SETTINGS, BOOKING_DEFAULTS } from "@/config/settings";
 import { formatDate } from "@/lib/time";
@@ -42,27 +50,51 @@ function CalendarPicker({
   label: string;
 }) {
   const [open, setOpen] = useState(false);
+  const pickerId = useId();
+  const today = formatDate(new Date(), DATE_FORMATS.dateInput);
+  const lower = min ? calendarDate(min.slice(0, 10)) : null;
+  const upper = max ? calendarDate(max.slice(0, 10)) : null;
+  function bounded(date: Date) {
+    return lower && date < lower ? lower : upper && date > upper ? upper : date;
+  }
   const [focused, setFocused] = useState(() =>
-    calendarDate(value) ? value : formatDate(new Date(), DATE_FORMATS.dateInput),
+    format(bounded(calendarDate(value) ?? calendarDate(today)!), DATE_FORMATS.dateInput),
   );
   const [month, setMonth] = useState(startOfMonth(calendarDate(focused)!));
   const grid = useRef<HTMLDivElement>(null);
   const days = calendarDays(month);
-  function move(date: Date) {
-    const next = format(date, DATE_FORMATS.dateInput);
+  const currentYear = calendarDate(today)!.getFullYear();
+  const firstYear =
+    lower?.getFullYear() ??
+    Math.max(1, Math.min(currentYear, month.getFullYear()) - UI_SETTINGS.calendarYearsBefore);
+  const lastYear =
+    upper?.getFullYear() ??
+    Math.min(9999, Math.max(currentYear, month.getFullYear()) + UI_SETTINGS.calendarYearsAfter);
+  const years = Array.from(
+    { length: Math.max(0, lastYear - firstYear + 1) },
+    (_, index) => firstYear + index,
+  );
+  const todayAvailable = !(min && today < min.slice(0, 10)) && !(max && today > max.slice(0, 10));
+  function select(date: string) {
+    onSelect(date);
+    setOpen(false);
+  }
+  function move(date: Date, focusGrid = true) {
+    const target = bounded(date);
+    const next = format(target, DATE_FORMATS.dateInput);
     setFocused(next);
-    setMonth(startOfMonth(date));
-    requestAnimationFrame(() =>
-      grid.current?.querySelector<HTMLButtonElement>(`[data-date="${next}"]`)?.focus(),
-    );
+    setMonth(startOfMonth(target));
+    if (focusGrid)
+      requestAnimationFrame(() =>
+        grid.current?.querySelector<HTMLButtonElement>(`[data-date="${next}"]`)?.focus(),
+      );
   }
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         if (next) {
-          const current =
-            calendarDate(value) ?? calendarDate(formatDate(new Date(), DATE_FORMATS.dateInput))!;
+          const current = bounded(calendarDate(value) ?? calendarDate(today)!);
           setFocused(format(current, DATE_FORMATS.dateInput));
           setMonth(startOfMonth(current));
         }
@@ -74,54 +106,118 @@ function CalendarPicker({
           type="button"
           disabled={disabled}
           aria-label={`Choose ${label} from calendar`}
-          className="rounded p-2 text-stone-500 hover:bg-stone-50"
+          className="rounded-md p-2 text-stone-500 hover:bg-emerald-50 hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-40"
         >
           <CalendarDays size={17} />
         </button>
       </DialogTrigger>
       <DialogContent
-        className="max-w-sm"
+        className="max-h-[calc(100dvh-2rem)] max-w-sm overflow-y-auto p-5 sm:p-6"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           grid.current?.querySelector<HTMLButtonElement>(`[data-date="${focused}"]`)?.focus();
         }}
       >
-        <DialogTitle className="pr-8 font-semibold">Choose {label}</DialogTitle>
+        <DialogTitle className="pr-8 text-base font-semibold">Choose {label}</DialogTitle>
         <DialogDescription className="mt-1 text-xs text-stone-500">
           Use arrow keys to move between days. Enter selects a date.
         </DialogDescription>
-        <div className="mt-5 flex items-center justify-between">
+        <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+          <p className="text-[10px] font-semibold tracking-widest text-emerald-700 uppercase">
+            Selected date
+          </p>
+          <p className="mt-1 text-sm font-semibold text-emerald-950">
+            {calendarDate(value)
+              ? format(calendarDate(value)!, DATE_FORMATS.dateWithYear)
+              : "Choose a day below"}
+          </p>
+        </div>
+        <div className="mt-4 flex items-center gap-2">
           <Button
             type="button"
             variant="ghost"
             size="icon"
             aria-label="Previous month"
+            disabled={!!lower && startOfMonth(lower) >= month}
             onClick={() => move(addMonths(calendarDate(focused)!, -1))}
           >
             <ChevronLeft size={18} />
           </Button>
-          <span aria-live="polite" className="text-sm font-semibold">
-            {format(month, DATE_FORMATS.month)}
-          </span>
+          <div className="grid min-w-0 flex-1 grid-cols-[1fr_5.5rem] gap-2">
+            <label htmlFor={`${pickerId}-month`} className="sr-only">
+              Month
+            </label>
+            <select
+              id={`${pickerId}-month`}
+              value={month.getMonth()}
+              className={cn(inputClass, "h-10 px-2 text-xs font-medium")}
+              onChange={(event) =>
+                move(
+                  addMonths(calendarDate(focused)!, Number(event.target.value) - month.getMonth()),
+                  false,
+                )
+              }
+            >
+              {Array.from({ length: 12 }, (_, index) => {
+                const candidate = addMonths(month, index - month.getMonth());
+                const unavailable = !!(
+                  (lower && endOfMonth(candidate) < lower) ||
+                  (upper && candidate > upper)
+                );
+                return (
+                  <option key={index} value={index} disabled={unavailable}>
+                    {format(candidate, "MMMM")}
+                  </option>
+                );
+              })}
+            </select>
+            <label htmlFor={`${pickerId}-year`} className="sr-only">
+              Year
+            </label>
+            <select
+              id={`${pickerId}-year`}
+              value={month.getFullYear()}
+              className={cn(inputClass, "h-10 px-2 text-xs font-medium")}
+              onChange={(event) =>
+                move(
+                  addMonths(
+                    calendarDate(focused)!,
+                    (Number(event.target.value) - month.getFullYear()) * 12,
+                  ),
+                  false,
+                )
+              }
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
           <Button
             type="button"
             variant="ghost"
             size="icon"
             aria-label="Next month"
+            disabled={!!upper && startOfMonth(upper) <= month}
             onClick={() => move(addMonths(calendarDate(focused)!, 1))}
           >
             <ChevronRight size={18} />
           </Button>
         </div>
+        <span aria-live="polite" className="sr-only">
+          {format(month, DATE_FORMATS.month)}
+        </span>
         <div role="grid" aria-label={format(month, DATE_FORMATS.month)} ref={grid} className="mt-3">
           <div role="row" className="grid grid-cols-7">
             {days.slice(0, 7).map((day) => (
               <span
                 key={day.toISOString()}
                 role="columnheader"
-                className="py-2 text-center text-xs text-stone-400"
+                className="py-2 text-center text-[11px] font-medium text-stone-500"
               >
-                {format(day, DATE_FORMATS.weekdayInitial)}
+                {format(day, "EEE")}
               </span>
             ))}
           </div>
@@ -140,6 +236,7 @@ function CalendarPicker({
                       data-date={date}
                       tabIndex={date === focused ? 0 : -1}
                       aria-disabled={unavailable}
+                      aria-current={date === today ? "date" : undefined}
                       aria-label={day.toLocaleDateString(UI_SETTINGS.locale, {
                         weekday: "long",
                         day: "numeric",
@@ -147,15 +244,19 @@ function CalendarPicker({
                         year: "numeric",
                       })}
                       className={cn(
-                        "my-0.5 flex h-9 w-full items-center justify-center rounded-md text-sm hover:bg-emerald-50",
+                        "my-0.5 flex h-10 w-full items-center justify-center rounded-lg text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-1",
+                        !unavailable && "hover:bg-emerald-50 hover:text-emerald-800",
                         day.getMonth() !== month.getMonth() && "text-stone-400",
-                        unavailable && "opacity-30",
-                        date === value && "bg-emerald-700 text-white hover:bg-emerald-800",
+                        unavailable && "cursor-not-allowed opacity-30",
+                        date === today &&
+                          date !== value &&
+                          "font-bold text-emerald-800 ring-1 ring-emerald-300 ring-inset",
+                        date === value &&
+                          "bg-emerald-700 text-white hover:bg-emerald-800 hover:text-white",
                       )}
                       onClick={() => {
                         if (!unavailable) {
-                          onSelect(date);
-                          setOpen(false);
+                          select(date);
                         }
                       }}
                       onKeyDown={(event) => {
@@ -168,8 +269,10 @@ function CalendarPicker({
                           next = startOfWeek(day, { weekStartsOn: UI_SETTINGS.weekStartsOn });
                         if (event.key === "End")
                           next = endOfWeek(day, { weekStartsOn: UI_SETTINGS.weekStartsOn });
-                        if (event.key === "PageUp") next = addMonths(day, -1);
-                        if (event.key === "PageDown") next = addMonths(day, 1);
+                        if (event.key === "PageUp")
+                          next = addMonths(day, event.shiftKey ? -12 : -1);
+                        if (event.key === "PageDown")
+                          next = addMonths(day, event.shiftKey ? 12 : 1);
                         if (next) {
                           event.preventDefault();
                           move(next);
@@ -183,6 +286,20 @@ function CalendarPicker({
               })}
             </div>
           ))}
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-stone-100 pt-4">
+          <p className="text-xs text-stone-500">
+            Today: {format(calendarDate(today)!, DATE_FORMATS.shortDateWithYear)}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!todayAvailable}
+            onClick={() => select(today)}
+          >
+            Today
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

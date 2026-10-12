@@ -7,6 +7,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
 import { randomUUID } from "node:crypto";
+import { getDemoAccounts } from "../../scripts/demo-accounts.mjs";
 
 if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Browser tests require the isolated local demonstration environment.");
@@ -17,6 +18,7 @@ const db = new PrismaClient({
   }),
 });
 const suffix = randomUUID().slice(0, 8);
+const demoAccounts = getDemoAccounts();
 const resourceName = `E2E Room ${suffix}`;
 const purpose = `Planning ${suffix}`;
 let resourceId = "";
@@ -188,16 +190,16 @@ test("anonymous access, failed login, disabled users, auth CSRF, signup closure,
     expect(oversized.status()).toBe(413);
     const origin = await request.post("/api/auth/sign-in/email", {
       headers: { origin: "https://untrusted.example" },
-      data: { email: process.env.SEED_MEMBER_EMAIL, password: process.env.SEED_MEMBER_PASSWORD },
+      data: demoAccounts.MEMBER,
     });
     expect(origin.status()).toBe(403);
-    await page.getByLabel("Email address").fill(process.env.SEED_MEMBER_EMAIL!);
+    await page.getByLabel("Email address").fill(demoAccounts.MEMBER.email);
     await page.getByLabel("Password", { exact: true }).fill("wrong-password");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(page.getByRole("alert").filter({ hasText: "Unable to sign in" })).toBeVisible();
     await login(page, "MEMBER");
     const user = await db.user.findUniqueOrThrow({
-      where: { email: process.env.SEED_MEMBER_EMAIL! },
+      where: { email: demoAccounts.MEMBER.email },
     });
     await db.user.update({ where: { id: user.id }, data: { isActive: false } });
     try {

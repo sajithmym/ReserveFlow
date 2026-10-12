@@ -15,10 +15,6 @@ if (!existsSync(".env")) {
       `TEST_DATABASE_URL=postgresql://reserveflow_owner:${ownerPassword}@127.0.0.1:54329/reserveflow_test`,
       "BETTER_AUTH_URL=http://localhost:3000",
       `BETTER_AUTH_SECRET=${secret()}`,
-      "SEED_ADMIN_EMAIL=admin@reserveflow.local",
-      `SEED_ADMIN_PASSWORD=${secret()}`,
-      "SEED_MEMBER_EMAIL=member@reserveflow.local",
-      `SEED_MEMBER_PASSWORD=${secret()}`,
       "LOCAL_POSTGRES=true",
       `LOCAL_DB_OWNER_PASSWORD=${ownerPassword}`,
       `LOCAL_DB_APP_PASSWORD=${appPassword}`,
@@ -26,7 +22,7 @@ if (!existsSync(".env")) {
     ].join("\n"),
     { mode: 0o600, flag: "wx" },
   );
-  console.log("Created ignored .env with unique local credentials. Open it privately to sign in.");
+  console.log("Created ignored .env with private database credentials and authentication secret.");
 }
 config({ quiet: true });
 function run(script, args = [], env = process.env) {
@@ -48,4 +44,6 @@ if (process.env.LOCAL_POSTGRES === "true" && process.env.TEST_DATABASE_URL) {
     MIGRATION_DATABASE_URL: process.env.TEST_DATABASE_URL,
   });
 }
-console.log("ReserveFlow is ready. Run npm run dev. Local credentials are in .env.");
+console.log(
+  "ReserveFlow is ready. Run npm run dev. Demo logins are in README.md and SETUP_AND_RUN.txt.",
+);

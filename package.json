@@ -20,6 +20,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
+    "db:demo-passwords": "tsx scripts/reset-demo-passwords.ts",
     "db:local": "node scripts/local-db.mjs start",
     "db:stop": "node scripts/local-db.mjs stop",
     "db:grant": "node scripts/grant-runtime.mjs",

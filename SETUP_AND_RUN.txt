@@ -1,0 +1,509 @@
+RESERVEFLOW - COMPLETE SETUP AND RUN GUIDE FOR A NEW WINDOWS PC
+=============================================================
+Updated: 12 October 2026 (Asia/Colombo)
+
+This guide creates a fresh local demonstration environment. Run the commands
+in PowerShell from the project root, which contains package.json.
+Run each command separately and continue only when it succeeds.
+Paths shown below are examples; use your actual project location.
+
+CONTENTS
+1. Install the required software
+2. Get the project onto the new PC
+3. Install project dependencies
+4. Set up PostgreSQL and environment variables automatically
+5. Start the application and sign in
+6. Start and stop the project on later days
+7. Verify the installation
+8. Run browser tests
+9. Run an optimized local build
+10. Update the project later
+11. Troubleshooting
+12. Alternative: use an existing PostgreSQL server
+13. Files to keep private and quick command reference
+
+
+1. INSTALL THE REQUIRED SOFTWARE
+--------------------------------
+A. Node.js and npm
+   Official download: https://nodejs.org/en/download
+   Use a Node.js 24 LTS Windows installer matching your PC architecture.
+   The project's minimum Node version is 22.18.0. The previously verified
+   environment used Node 24.8.0 and npm 11.6.0.
+   Keep npm and the option to add Node.js to PATH enabled during installation.
+
+B. PostgreSQL
+   Official Windows download: https://www.postgresql.org/download/windows/
+   Install PostgreSQL 18, 17, or 16, including the server and command-line
+   tools. This project was previously verified with PostgreSQL 18.3.
+   A normal installation places executables in a directory such as:
+     C:\Program Files\PostgreSQL\18\bin
+   pgAdmin is optional for this project; extra StackBuilder packages are not
+   required for the standard setup.
+
+   The installer may create a Windows PostgreSQL service on port 5432 and ask
+   for its administrator password. Keep that password private. ReserveFlow's
+   automatic setup creates its own separate cluster on port 54329 and its
+   own credentials; it does not use or modify that system service.
+
+C. Git (needed to clone or pull the repository)
+   Official Windows download: https://git-scm.com/install/windows
+   Allow Git to be used from the command line. Git is optional if you only
+   use a downloaded source ZIP, but the project's secret scan needs Git
+   and a Git working tree.
+
+D. An editor and browser
+   VS Code or another text editor, plus Chrome or Edge, is sufficient.
+
+After installation, close and reopen PowerShell or your IDE terminal so the
+new PATH settings take effect. Check:
+
+  node --version
+  npm --version
+  git --version
+  & 'C:\Program Files\PostgreSQL\18\bin\pg_ctl.exe' --version
+
+Change 18 in the last command if you installed PostgreSQL 17 or 16.
+Installers may require administrator access. Run project setup and PostgreSQL
+cluster commands from an ordinary, non-administrator terminal.
+
+
+2. GET THE PROJECT ONTO THE NEW PC
+---------------------------------
+Choose ONE method:
+
+A. Clone the repository (replace the placeholder with the real repository URL):
+
+  Set-Location "$env:USERPROFILE\Documents"
+  git clone 'REPLACE_WITH_YOUR_REPOSITORY_URL' ReserveFlow
+  Set-Location .\ReserveFlow
+
+B. Extract a downloaded source ZIP into your Documents folder, then open
+   PowerShell in the extracted project root. A ZIP may add another folder
+   level. Select the directory containing package.json and package-lock.json.
+
+C. Copy the source from your old PC into a NEW folder. Include the source,
+   package.json, package-lock.json, scripts, prisma/migrations, and
+   .env.example. For a fresh setup, exclude:
+     node_modules, .next, .local, .env, artifacts, test-results,
+     playwright-report, and generated build files.
+
+For example, if your project is here:
+
+  Set-Location "$env:USERPROFILE\Documents\ReserveFlow"
+  Get-Item package.json, package-lock.json
+
+A fresh setup creates new accounts and demonstration data; it does not
+transfer reservations from the old PC. If you need the old data, arrange a
+PostgreSQL logical backup/restore using pg_dump/pg_restore and preserve the
+old private configuration separately. Do not copy a running database's data
+directory or delete the old .local folder as part of this fresh setup.
+
+
+3. INSTALL PROJECT DEPENDENCIES
+-------------------------------
+From the project root:
+
+  npm ci
+
+This installs the dependency versions pinned in package-lock.json and runs
+Prisma client generation. Internet access is needed for dependency downloads.
+Do not install Next.js, Prisma, or React globally or replace the lockfile with
+unrelated latest versions. npm ci replaces the project's node_modules folder.
+
+
+4. SET UP POSTGRESQL AND ENVIRONMENT VARIABLES AUTOMATICALLY
+-----------------------------------------------------------
+For a fresh local setup, let the setup script create .env. Do NOT copy
+.env.example to .env for this automatic route; its values are placeholders.
+If .env already exists, setup preserves it instead of generating new values.
+
+Run:
+
+  npm run setup
+
+The script:
+  - Creates an ignored .env with random database passwords and an auth secret
+    when .env does not already exist.
+  - Finds PostgreSQL 18/17/16 executables.
+  - Initializes and starts an independent cluster in .local/postgres.
+  - Listens on 127.0.0.1:54329.
+  - Creates reserveflow and reserveflow_test databases.
+  - Generates the Prisma client and applies committed SQL migrations.
+  - Grants limited runtime permissions to reserveflow_app.
+  - Seeds an administrator, a member, six resources, and three demonstration
+    reservations for the next Sri Lanka calendar day on a fresh database.
+  - Applies migrations to the separate test database.
+
+Wait for:
+  ReserveFlow is ready. Run npm run dev. Demo logins are in README.md and SETUP_AND_RUN.txt.
+
+If PostgreSQL is installed outside the automatically detected locations,
+set its binary directory before running setup:
+
+  $env:PG_BIN = 'D:\PostgreSQL\18\bin'
+  npm run setup
+
+Replace the path with the directory containing pg_ctl.exe, initdb.exe, and
+postgres.exe. That PowerShell setting lasts only for the current terminal.
+After setup, add this line to .env to keep a custom location for later runs:
+
+  PG_BIN=D:/PostgreSQL/18/bin
+
+Use the actual path. Do not change database URLs or passwords merely because
+PostgreSQL executables live on a different drive.
+
+Never use prisma db push. The committed migrations contain PostgreSQL CHECK
+and exclusion constraints required to prevent invalid or overlapping bookings.
+
+
+5. START THE APPLICATION AND SIGN IN
+-----------------------------------
+After setup succeeds:
+
+  npm run dev
+
+Leave that terminal running. Wait for the Next.js Ready message, then open:
+
+  http://localhost:3000/login
+
+Use these fixed local demonstration accounts:
+
+  Administrator:
+    Email:    admin@reserveflow.local
+    Password: 2c9ce316f45005f0dcdd71c1cb434fde1b6c6915222e026414a9ceed415bf869
+
+  Member:
+    Email:    member@reserveflow.local
+    Password: 5b00eb66ee81c3843f448df4379c72bae6a34c7d30187821cb7550734b6d5454
+
+These login values are intentionally documented here and in README.md.
+They are defined once in scripts/demo-accounts.mjs and used by the seed
+and local verification tools. Seed passwords are not stored in .env.
+The .env file still contains private database passwords and the auth secret.
+Published demo accounts are for local development only; the seed rejects
+remote databases and production mode. There is no public sign-up.
+
+To confirm normal operation:
+  1. Sign in as administrator and browse resources and members.
+  2. Sign out, then sign in as member.
+  3. Create a future reservation using the displayed Sri Lanka time zone.
+  4. Refresh and confirm the reservation persists.
+  5. Try an overlapping slot for the same resource; it should be rejected.
+  6. Cancel your demonstration reservation; its history should remain visible.
+
+Keep .env, private passwords, and authentication cookies out of screenshots and demos.
+The two documented demonstration passwords are intentionally public.
+
+
+6. START AND STOP THE PROJECT ON LATER DAYS
+------------------------------------------
+After restarting your PC, open PowerShell in the project root and run:
+
+  npm run db:local
+  npm run dev
+
+Open http://localhost:3000/login again. You do not need to reinstall packages
+or seed the database for every session.
+
+IMPORTANT: npm run dev starts Next.js only. The isolated database does not
+automatically start after a reboot. Start it first with npm run db:local.
+
+To stop:
+  1. Press Ctrl+C in the terminal running npm run dev.
+  2. In a terminal at the project root, run:
+
+  npm run db:stop
+
+Stopping or restarting the cluster retains accounts, resources, and reservation
+history. Do not delete .local/postgres or regenerate .env to restart the app.
+
+
+7. VERIFY THE INSTALLATION
+--------------------------
+With setup completed and PostgreSQL running, run each command separately:
+
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run test:db
+  npm run build
+  npm audit --omit=dev
+  npm run check:secrets
+
+The database suite uses TEST_DATABASE_URL, which must point to the dedicated
+reserveflow_test database. Never point it at your application database or a
+production database. Automatic setup creates and migrates the test database.
+
+If typecheck reports missing generated Next.js route types on a fresh checkout,
+run npx next typegen, then npm run typecheck again. Prisma client generation is
+available separately with npm run db:generate.
+
+check:secrets requires private environment configuration and a Git working tree.
+For a source ZIP without Git metadata, that check will fail until you initialize
+a Git working tree with git init (or use a proper clone).
+
+Prior verification results and known audit limitations are recorded in
+docs/VERIFICATION.md. These commands must be run on the new PC to establish
+that installation's results. Do not assume the old machine's passes apply.
+Do not run npm audit fix --force as an automatic setup step.
+
+
+8. RUN BROWSER TESTS (OPTIONAL)
+-------------------------------
+Use only local demonstration data: browser tests create and modify records.
+Keep PostgreSQL running. Stop your development server with Ctrl+C so Playwright
+can start its own server on port 3000.
+
+Install the bundled test browser once:
+
+  npx playwright install chromium
+  npm run test:e2e
+
+Alternatively, use an installed Chrome or Edge browser without the bundled
+Chromium installation:
+
+  $env:PLAYWRIGHT_CHANNEL = 'msedge'
+  npm run test:e2e
+
+Use 'chrome' instead of 'msedge' for installed Chrome.
+
+If port 3000 is already occupied, use a different local port:
+
+  $env:PLAYWRIGHT_BASE_URL = 'http://localhost:3100'
+  $env:PLAYWRIGHT_CHANNEL = 'msedge'
+  npm run test:e2e
+
+Playwright sets BETTER_AUTH_URL for its own server process. Do not change your
+.env for this test-port example. These PowerShell variables last only for the
+current terminal; use a new terminal afterward for normal development.
+
+
+9. RUN AN OPTIMIZED LOCAL BUILD
+-------------------------------
+After initial setup, stop any app using port 3000 and run:
+
+  npm run db:local
+  npm run build
+  npm run start
+
+Open http://localhost:3000/login. Keep PostgreSQL and the app process running.
+npm run start needs a successful build first. Rebuild after changing source.
+Press Ctrl+C to stop the app, then npm run db:stop when finished.
+This is a local build preview; public hosting requires separate deployment,
+database provisioning, HTTPS, and production configuration.
+
+
+10. UPDATE THE PROJECT LATER
+----------------------------
+For a Git clone, stop the app and save or commit your own source changes before
+pulling updates. Then run:
+
+  git pull
+  npm ci
+  npm run setup
+  npm run dev
+
+On the same initialized installation, setup preserves .env, applies pending
+migrations, refreshes runtime grants, and reruns the idempotent seed. Existing
+seed account password hashes and user edits are preserved. Keep a database
+backup before applying updates to data you need to retain.
+
+For an app-only migration command after PostgreSQL has started:
+
+  npm run db:migrate
+
+That command uses MIGRATION_DATABASE_URL and does not separately migrate the
+test database. For the standard local cluster, setup handles both databases.
+
+
+11. TROUBLESHOOTING
+-------------------
+A. P1001 / Can't reach database server at 127.0.0.1:54329
+   Start the cluster, then retry the page or sign-in:
+
+     npm run db:local
+
+   Check the port if needed:
+
+     Test-NetConnection 127.0.0.1 -Port 54329
+
+   TcpTestSucceeded should be True. If startup fails, inspect
+   .local/postgres.log privately. Do not delete the data directory or change
+   credentials to solve a stopped-server error.
+
+B. PostgreSQL binaries not found
+   Confirm PostgreSQL 18, 17, or 16 is installed. Set PG_BIN to the actual bin
+   directory, as shown in section 4. pg_ctl.exe must exist there.
+   If startup fails due to permissions, use an ordinary terminal and a project
+   folder your Windows account can write to. Check .local/postgres.log.
+
+C. node, npm, or git is not recognized
+   Install the missing software with PATH enabled and reopen the terminal.
+   If npm.ps1 is blocked by PowerShell execution policy, use npm.cmd in place
+   of npm, for example npm.cmd ci. Use npx.cmd instead of npx when needed.
+
+D. Port 3000 is occupied / sign-in fails on a different app port
+   Stop your own conflicting app, or choose port 3100 for ReserveFlow.
+   Before starting, set the exact authentication origin for that terminal:
+
+     $env:BETTER_AUTH_URL = 'http://localhost:3100'
+     npm run dev -- --port 3100
+
+   Open http://localhost:3100/login. Use that same hostname and port throughout;
+   localhost and 127.0.0.1 are different origins. Restart Next.js after changing
+   auth configuration. A fresh terminal restores values from .env.
+
+E. Could not start the isolated cluster / port 54329 is occupied
+   Inspect .local/postgres.log and the process listening on port 54329.
+   Do not stop an unknown service or change only one database URL. The local
+   helper deliberately expects port 54329. Resolve the conflict with the
+   service owner, or use the existing-server route in section 12.
+
+F. Local helper expects reserveflow_owner on 127.0.0.1:54329
+   For automatic local setup, use the generated .env. Copying .env.example
+   unchanged will not work: it contains placeholder passwords and localhost.
+   If a cluster already exists, retain its matching credentials. For a new,
+   unused source folder with no .local cluster, move an accidental placeholder
+   .env aside privately and rerun setup to generate real values.
+
+G. Relation/table does not exist, missing migration, or permission denied
+   For the standard local cluster, stop the app and rerun npm run setup.
+   To refresh local runtime grants alone, use npm run db:grant.
+   Ensure the runtime and migration URLs target the same app database with
+   their respective users. Use migrations; never db push.
+
+H. Invalid email or password / Please sign in to continue
+   Sign in at /login using the fixed demonstration logins in section 5.
+   Regular seeding preserves stored passwords, including any changes made via
+   Members > Edit member. On the isolated local demo, restore the documented
+   passwords with npm run db:demo-passwords if needed. This explicit command
+   revokes the two accounts' sessions and preserves their reservations.
+   Do not reseed or erase data merely because an authenticated session expired.
+
+I. Build or package installation fails
+   Check Node is at least 22.18.0, that you are in the project root, and that
+   package-lock.json is present. Retry npm ci after fixing network or version
+   issues. npm run db:generate regenerates the Prisma client if needed.
+   Preserve the pinned lockfile and resolve the reported error before continuing.
+
+
+12. ALTERNATIVE: USE AN EXISTING LOCAL POSTGRESQL SERVER
+------------------------------------------------
+Skip this section if automatic local setup worked. This route requires database
+administration access and manual provisioning; the local cluster helper is not used.
+Use a PostgreSQL server on this PC (localhost / 127.0.0.1). The public demo seed
+refuses remote database hosts and production mode. Hosted environments must
+provision their own private accounts rather than using these demo logins.
+
+1. On your PostgreSQL server, provision a dedicated reserveflow database and
+   a separate reserveflow_test database. The migration owner must own the
+   schema and have permission to install btree_gist. Provision an app runtime
+   login separately with a unique password.
+
+2. In a fresh source folder, create a private environment file:
+
+     Copy-Item .env.example .env
+
+   Do not overwrite an existing configured .env. Edit the file privately:
+
+     LOCAL_POSTGRES=false
+     DATABASE_URL=postgresql://APP_USER:ENCODED_PASSWORD@HOST:PORT/reserveflow
+     MIGRATION_DATABASE_URL=postgresql://OWNER_USER:ENCODED_PASSWORD@HOST:PORT/reserveflow
+     TEST_DATABASE_URL=postgresql://TEST_OWNER:ENCODED_PASSWORD@HOST:PORT/reserveflow_test
+     BETTER_AUTH_URL=http://localhost:3000
+     BETTER_AUTH_SECRET=YOUR_UNIQUE_RANDOM_SECRET
+
+   Replace every placeholder. URL-encode special characters in connection-string
+   passwords. The fixed demo logins come from scripts/demo-accounts.mjs.
+   Use localhost for HOST in this local-server route. Generate an auth
+   secret containing at least 32 random bytes, for example:
+
+     node --input-type=module -e "import { randomBytes } from 'node:crypto'; console.log(randomBytes(32).toString('hex'));"
+
+   This command prints a NEW secret. Run it privately and paste the result into
+   .env; do not share terminal output. LOCAL_DB_* and PG_BIN are not used by
+   the existing-server route. Remove unused placeholder entries if desired.
+
+3. Install dependencies and apply the application migrations:
+
+     npm ci
+     npm run db:migrate
+
+4. As the migration owner or database administrator, grant runtime access in
+   reserveflow (replace APP_USER with the actual runtime role identifier):
+
+     GRANT CONNECT ON DATABASE reserveflow TO APP_USER;
+     GRANT USAGE ON SCHEMA public TO APP_USER;
+     GRANT SELECT, INSERT, UPDATE ON "User", "Account", "Verification",
+       "Resource", "Reservation" TO APP_USER;
+     GRANT SELECT, INSERT, UPDATE, DELETE ON "Session", "Verification" TO APP_USER;
+     GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO APP_USER;
+
+   The runtime login must not own the schema or have schema modification or
+   reservation/resource deletion privileges. npm run db:grant intentionally
+   supports only the automatic local cluster.
+
+5. Seed using the configured migration owner:
+
+     npm run db:seed
+
+6. Apply migrations to the dedicated test database. Temporarily set the
+   migration URL in this terminal to your actual TEST_DATABASE_URL value:
+
+     $env:MIGRATION_DATABASE_URL = 'REPLACE_WITH_YOUR_PRIVATE_TEST_DATABASE_URL'
+     npm run db:migrate
+     Remove-Item Env:MIGRATION_DATABASE_URL
+
+   Enter the real private URL only in your private terminal; never save it
+   in this guide or a shared transcript. Remove the temporary variable even
+   if migration fails, so later app commands use the .env migration URL.
+
+7. Start with npm run dev and sign in as described in section 5. Keep your
+   existing PostgreSQL server running. Do not use db:local or db:stop here.
+
+
+13. FILES TO KEEP PRIVATE AND QUICK COMMAND REFERENCE
+-----------------------------------------------------
+Preserve .env and .local on the PC after setup; they contain configuration and
+persistent data. Back up data you need to retain. Keep .env, local DB data,
+private credentials, tokens, and browser test artifacts out of Git and shared archives.
+The two demonstration account passwords in section 5 are intentionally public.
+.env.example is the safe placeholder template. Never publish the development
+database on the internet or treat this assessment setup as production hosting.
+
+First installation (software installed, source folder ready, no .env yet):
+
+  npm ci
+  npm run setup
+  npm run dev
+
+Every later session:
+
+  npm run db:local
+  npm run dev
+
+Stop:
+
+  Ctrl+C in the app terminal
+  npm run db:stop
+
+Other useful commands:
+
+  npm run db:migrate    Apply committed migrations to the configured app DB
+  npm run db:generate   Regenerate Prisma client
+  npm run db:seed       Rerun the seed without resetting existing records
+  npm run db:demo-passwords  Restore documented passwords for the two local demo accounts
+  npm run build         Create an optimized app build
+  npm run start         Serve a completed build
+
+Default login page: http://localhost:3000/login
+Local database:    127.0.0.1:54329
+Database storage:  .local/postgres
+Database log:      .local/postgres.log
+Demo logins:       Fixed values in section 5 and README.md
+Further details:   README.md and docs/VERIFICATION.md
+
+This guide was checked against the repository's setup scripts and package
+commands. A fresh installation on a separate new PC was not performed when
+writing it; run section 7 on that PC and record the actual outcomes.

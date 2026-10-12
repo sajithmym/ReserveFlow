@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import {
   Dialog,
   DialogTrigger,
@@ -22,18 +23,25 @@ export function ConfirmAction({
   id,
   kind,
   active,
+  iconOnly = false,
+  memberName,
 }: {
   id: string;
   kind: "resource" | "reservation" | "member" | "member-archive";
   active?: boolean;
+  iconOnly?: boolean;
+  memberName?: string;
 }) {
+  const hydrated = useHydrated();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const router = useRouter();
   const title =
     kind === "member-archive"
-      ? "Archive member"
+      ? iconOnly
+        ? "Delete member"
+        : "Archive member"
       : kind === "member"
         ? active
           ? "Deactivate member"
@@ -71,24 +79,33 @@ export function ConfirmAction({
       <Dialog
         open={open}
         onOpenChange={(value) => {
-          if (!pending) setOpen(value);
+          if (!pending) {
+            setMessage("");
+            setOpen(value);
+          }
         }}
       >
         <DialogTrigger asChild>
           <Button
-            variant="outline"
+            type="button"
+            variant={iconOnly ? "ghost" : "outline"}
+            size={iconOnly ? "icon" : "default"}
+            disabled={!hydrated || pending}
+            aria-label={iconOnly ? `Delete ${memberName ?? "member"}` : undefined}
+            title={iconOnly ? `Delete ${memberName ?? "member"}` : undefined}
             className={
               kind === "reservation" || kind === "member-archive" || active
                 ? "text-red-700 hover:bg-red-50"
                 : ""
             }
           >
-            {title}
+            {iconOnly ? <Trash2 size={17} aria-hidden="true" /> : title}
           </Button>
         </DialogTrigger>
         <DialogContent>
           <DialogTitle className="pr-7 text-lg font-semibold">{title}?</DialogTitle>
           <DialogDescription className="mt-3 text-sm leading-6 text-stone-500">
+            {kind === "member-archive" && memberName && <>{memberName}: </>}
             {kind === "member-archive" || (kind === "member" && active)
               ? "This account will lose access and existing sessions will be revoked. Its reservations and history are retained. You can reactivate the account later."
               : kind === "member"

@@ -51,7 +51,16 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
   for (const page of [admin, member]) {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     page.on("console", (message) => {
-      if (message.type() === "error") consoleErrors.push(message.text());
+      if (message.type() !== "error") return;
+      // The login helper verifies and respects the auth retry window, then asserts success.
+      // Chromium still reports the handled HTTP 429 as a resource console error.
+      if (
+        message.location().url === `${TEST_ORIGIN}/api/auth/sign-in/email` &&
+        message.text() ===
+          "Failed to load resource: the server responded with a status of 429 (Too Many Requests)"
+      )
+        return;
+      consoleErrors.push(message.text());
     });
   }
   try {
@@ -78,6 +87,26 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     memberId = new URL(admin.url()).pathname.split("/").at(-1)!;
     await admin.goto(`/members?q=${email}`);
     await expect(admin.getByRole("table")).toContainText(email);
+    await expect(
+      admin.getByRole("link", { name: `View Teammate ${suffix}`, exact: true }),
+    ).toBeVisible();
+    await expect(
+      admin.getByRole("link", { name: `Edit Teammate ${suffix}`, exact: true }),
+    ).toBeVisible();
+    await expect(
+      admin.getByRole("button", { name: `Delete Teammate ${suffix}`, exact: true }),
+    ).toBeVisible();
+    await admin.getByRole("link", { name: `View Teammate ${suffix}`, exact: true }).click();
+    await expect(admin).toHaveURL(new RegExp(`/members/${memberId}$`));
+    await admin.goto(`/members?q=${email}`);
+    await admin.getByRole("link", { name: `Edit Teammate ${suffix}`, exact: true }).click();
+    await admin.getByLabel("Full name").fill("This change should be discarded");
+    await admin.getByRole("link", { name: "Cancel", exact: true }).click();
+    await expect(admin).toHaveURL(/\/members$/);
+    expect((await db.user.findUniqueOrThrow({ where: { id: memberId } })).name).toBe(
+      `Teammate ${suffix}`,
+    );
+    await admin.goto(`/members?q=${email}`);
     const role = admin.getByRole("combobox", { name: "Filter by role" });
     await role.fill("no-such-role");
     await expect(admin.getByRole("status").filter({ hasText: "No options found" })).toBeVisible();
@@ -108,9 +137,8 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     );
     await admin.getByRole("button", { name: "Save changes", exact: true }).click();
     const actionId = (await actionRequest).headers()["next-action"];
-    await expect(
-      admin.getByRole("heading", { name: `Updated ${suffix}`, exact: true }),
-    ).toBeVisible();
+    await expect(admin).toHaveURL(/\/members$/);
+    await expect(admin.getByRole("table")).toContainText(`Updated ${suffix}`);
     const payload = [
       memberId,
       { name: "Forged admin", email, role: "ADMIN", isActive: true, password: "" },
@@ -163,6 +191,15 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     const calendar = member.getByRole("dialog");
     await expect(calendar.getByRole("grid")).toBeVisible();
     await member.screenshot({ path: ".local/qa/calendar-desktop.png" });
+    await member.setViewportSize({ width: 390, height: 844 });
+    const calendarBounds = await calendar.boundingBox();
+    expect(calendarBounds).not.toBeNull();
+    expect(calendarBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(calendarBounds!.x + calendarBounds!.width).toBeLessThanOrEqual(390);
+    expect(calendarBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(calendarBounds!.y + calendarBounds!.height).toBeLessThanOrEqual(844);
+    await member.screenshot({ path: ".local/qa/calendar-mobile.png" });
+    await member.setViewportSize({ width: 1280, height: 720 });
     const selectedDay = calendar.locator('button[tabindex="0"][data-date]');
     await selectedDay.press("ArrowRight");
     await calendar.locator('button[tabindex="0"][data-date]').press("ArrowLeft");
@@ -170,6 +207,26 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     await expect(member.getByLabel("Start date & time", { exact: true })).toHaveValue(
       `${day}T09:00`,
     );
+    // Month/year controls handle leap years and preserve the time portion.
+    await member.getByRole("button", { name: "Choose Start date & time from calendar" }).click();
+    await calendar.getByRole("combobox", { name: "Year", exact: true }).selectOption("2028");
+    await calendar.getByRole("combobox", { name: "Month", exact: true }).selectOption("1");
+    await calendar.locator('[data-date="2028-02-29"]').click();
+    await expect(member.getByLabel("Start date & time", { exact: true })).toHaveValue(
+      "2028-02-29T09:00",
+    );
+    await member.getByRole("button", { name: "Choose Start date & time from calendar" }).click();
+    await calendar.getByRole("combobox", { name: "Year", exact: true }).selectOption("2029");
+    await expect(calendar.locator('button[tabindex="0"][data-date]')).toHaveAttribute(
+      "data-date",
+      "2029-02-28",
+    );
+    await calendar.getByRole("button", { name: "Today", exact: true }).click();
+    const today = formatInTimeZone(new Date(), TIME_ZONE, DATE_FORMATS.dateInput);
+    await expect(member.getByLabel("Start date & time", { exact: true })).toHaveValue(
+      `${today}T09:00`,
+    );
+    await member.getByLabel("Start date & time", { exact: true }).fill(`${day}T09:00`);
     await member.getByRole("button", { name: "Check availability", exact: true }).click();
     await expect(member.getByText(/This time slot is currently available/)).toBeVisible();
     await member.getByRole("button", { name: "Confirm reservation", exact: true }).click();
@@ -196,11 +253,18 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     await expect(admin.getByLabel("Date in Sri Lanka time", { exact: true })).toHaveValue(date!);
     await admin.getByRole("button", { name: "Clear Date in Sri Lanka time", exact: true }).click();
     await expect(admin.getByLabel("Date in Sri Lanka time", { exact: true })).toHaveValue("");
-    await admin.goto(`/members/${memberId}`);
-    await admin.getByRole("button", { name: "Archive member", exact: true }).click();
+    await admin.goto(`/members?q=${email}`);
+    await admin.getByRole("button", { name: `Delete Updated ${suffix}`, exact: true }).click();
+    await expect(admin.getByRole("dialog")).toContainText("reservations and history are retained");
     await admin
       .getByRole("dialog")
-      .getByRole("button", { name: "Archive member", exact: true })
+      .getByRole("button", { name: "Keep as is", exact: true })
+      .click();
+    expect((await db.user.findUniqueOrThrow({ where: { id: memberId } })).isActive).toBe(true);
+    await admin.getByRole("button", { name: `Delete Updated ${suffix}`, exact: true }).click();
+    await admin
+      .getByRole("dialog")
+      .getByRole("button", { name: "Delete member", exact: true })
       .click();
     await expect(admin.getByText("Inactive", { exact: true })).toBeVisible();
     await member.goto("/reservations");
@@ -209,6 +273,7 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     expect((await db.reservation.findFirstOrThrow({ where: { resourceId } })).status).toBe(
       "CONFIRMED",
     );
+    await admin.goto(`/members/${memberId}`);
     await admin.getByRole("button", { name: "Activate member", exact: true }).click();
     await admin
       .getByRole("dialog")
@@ -218,7 +283,8 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     await admin.goto(`/members/${memberId}/edit`);
     await choose(admin, "Role", "Administrator");
     await admin.getByRole("button", { name: "Save changes", exact: true }).click();
-    await expect(admin.getByRole("main").getByText("Administrator", { exact: true })).toBeVisible();
+    await expect(admin).toHaveURL(/\/members$/);
+    await expect(admin.getByRole("row").filter({ hasText: email })).toContainText("Administrator");
     await admin.setViewportSize({ width: 390, height: 844 });
     await admin.goto("/members");
     await admin.getByRole("button", { name: "Open navigation", exact: true }).click();
@@ -229,6 +295,36 @@ test("member CRUD, session revocation, searchable controls, calendars and mobile
     await admin.screenshot({ path: ".local/qa/members-mobile.png" });
     await admin.setViewportSize({ width: 1360, height: 900 });
     await admin.screenshot({ path: ".local/qa/members-desktop.png" });
+    // Cancelling logout keeps the session; confirming revokes it.
+    await admin.getByRole("button", { name: "Sign out", exact: true }).click();
+    await admin
+      .getByRole("dialog", { name: "Sign out?", exact: true })
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await admin.reload();
+    await expect(admin).toHaveURL(/\/members$/);
+    await admin.setViewportSize({ width: 390, height: 844 });
+    await admin.getByRole("button", { name: "Open navigation", exact: true }).click();
+    await admin
+      .getByRole("dialog", { name: "ReserveFlow", exact: true })
+      .getByRole("button", { name: "Sign out", exact: true })
+      .click();
+    await admin
+      .getByRole("dialog", { name: "Sign out?", exact: true })
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click();
+    await expect(admin.getByRole("dialog", { name: "ReserveFlow", exact: true })).toBeVisible();
+    await admin
+      .getByRole("dialog", { name: "ReserveFlow", exact: true })
+      .getByRole("button", { name: "Sign out", exact: true })
+      .click();
+    await admin
+      .getByRole("dialog", { name: "Sign out?", exact: true })
+      .getByRole("button", { name: "Sign out", exact: true })
+      .click();
+    await expect(admin).toHaveURL(/\/login$/);
+    await admin.goto("/members");
+    await expect(admin).toHaveURL(/\/login$/);
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   } finally {

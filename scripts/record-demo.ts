@@ -6,6 +6,8 @@ import { chromium } from "@playwright/test";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { formatInTimeZone } from "date-fns-tz";
+import { getDemoAccounts } from "./demo-accounts.mjs";
+const demoAccounts = getDemoAccounts();
 
 if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Recording is restricted to the local demo environment.");
@@ -26,8 +28,8 @@ async function signIn(role: "ADMIN" | "MEMBER") {
   const response = await context.request.post("/api/auth/sign-in/email", {
     headers: { origin: baseURL },
     data: {
-      email: process.env[`SEED_${role}_EMAIL`],
-      password: process.env[`SEED_${role}_PASSWORD`],
+      email: demoAccounts[role].email,
+      password: demoAccounts[role].password,
     },
   });
   if (!response.ok())

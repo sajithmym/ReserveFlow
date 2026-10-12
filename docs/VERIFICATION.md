@@ -1,5 +1,70 @@
 # Verification report
 
+## Fixed documented demo logins — 12 October 2026, Asia/Colombo
+
+At the user's explicit request, the existing local administrator/member login values are now intentionally public in `README.md` and `SETUP_AND_RUN.txt`. Their shared definition is `scripts/demo-accounts.mjs`. Seed account email/password entries were removed from the actual ignored `.env`, the example environment file, and automatic environment generation. Private PostgreSQL passwords, database URLs, and the authentication secret remain in `.env`. Earlier credential-handling notes below describe the previous configuration.
+
+The seed, browser tests, auth check, and recording helper read the same fixed definition. The demo-account getter refuses production mode or a remote runtime/migration database host. Normal seeding retains existing account hashes. The former environment-writing rotation helper was replaced by `scripts/reset-demo-passwords.ts`, exposed as `npm run db:demo-passwords`; it explicitly restores the documented passwords and revokes only the two demo accounts' sessions. No reset was applied to the existing demonstration accounts during this change.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Existing seed repeatability | PASS | `npx tsx scripts/verify-seed.ts` preserved row counts and stored password hashes without seed environment entries |
+| Fresh database migrations and seed | PASS | Both committed migrations applied to a newly created isolated local test database; fixed seed created two users, six resources, and three reservations; repeat seed retained counts and hashes |
+| Explicit demo-password reset | PASS | On that isolated database only, restored both documented passwords from invalid test hashes, revoked both test sessions, and retained user/resource/reservation counts; database removed afterward |
+| ESLint | PASS | `npm run lint` |
+| TypeScript | PASS | `npm run typecheck` |
+| Unit tests | PASS | 24 tests across three files, including documented login consistency and remote/production refusal |
+| PostgreSQL integration tests | PASS | 27 tests against the configured isolated `_test` database |
+| Production build | PASS | `npm run build` |
+| Browser suite | PASS | Three tests passed in 1.6 minutes using Edge against the production build at localhost:3100, with no seed account environment entries |
+| Development auth check | PASS | Updated auth helper signed in at localhost:3000, retrieved its session and dashboard (all HTTP 200), then signed out its verification session |
+| Private-secret and browser scan | PASS | 150 Git-visible source/production browser files; published demo passwords are permitted in docs/scripts but are also checked for accidental inclusion in production app bundles |
+| Formatting / guide commands | PASS | Prettier check passed; all setup-guide npm commands match package.json |
+
+The first ad hoc fresh-database harness failed because it invoked Prisma directly without npm's `node_modules/.bin` PATH, so the seed CLI could not find tsx. The temporary database was removed; the corrected harness supplied the npm-style PATH and the complete migrations/seed/reset checks passed. This did not require a project startup change.
+
+Original assessment prompt files and SQL migrations remain unchanged. Published demonstration credentials are unsuitable for hosted/private deployments; those environments must provision separate accounts. The actual local account passwords and stored hashes were preserved, and the live development server remains at localhost:3000.
+
+## Member actions, logout confirmation, and calendar — 12 October 2026, Asia/Colombo
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| ESLint | PASS | `npm run lint`, including the final component and test changes |
+| TypeScript | PASS | `npm run typecheck` |
+| Unit tests | PASS | `npm run test`: 19 tests across two files |
+| Isolated PostgreSQL integration tests | PASS | `npm run test:db`: 27 tests across two files, using the configured `_test` database |
+| Production build | PASS | Final `npm run build` compiled, checked TypeScript, and generated all routes |
+| Browser suite | PASS | All three tests passed in 1.8 minutes using installed Edge against the production build at `http://localhost:3100` |
+| Formatting | PASS | Prettier check on all changed components, settings, and browser tests |
+| Private configuration scan | PASS | `npm run check:secrets`: 148 Git-visible source and production browser files |
+| Patch whitespace | PASS | `git diff --check` |
+
+The member browser scenario verifies View/Edit/Delete icons, cancel without saving, successful edits returning to `/members`, delete cancellation, logical deletion with session revocation and reservation retention, and reactivation. The existing last-administrator protections remain server-side and are covered by the database suite. Creating a member continues to open its profile.
+
+Calendar checks cover month/year selectors, selecting 29 February in a leap year, changing to a non-leap year, Today in Asia/Colombo, preserving the time portion of datetime fields, keyboard navigation, and date-filter clearing. Desktop screenshots and the 390 x 844 mobile calendar screenshot were visually inspected. Browser assertions confirm the popup fits inside the mobile viewport. Date bounds constrain navigation, month/year choices, day selection, and the Today shortcut.
+
+Logout checks verify desktop cancellation preserves the session, cancellation from the nested mobile navigation dialog returns to navigation, confirmation redirects to login, and subsequent protected access is denied. Pending requests prevent repeated submissions or dismissal.
+
+Intermediate development-server runs had a first-login navigation timeout and an expected HTTP 429 console message from the login helper's successful retry. The first timeout did not reproduce in the next development run; both configured seed passwords were checked against stored hashes and matched. The test now excludes only the handled sign-in 429 console message, while retaining checks for other console errors and requiring a successful login response after the validated retry interval. The final complete suite passed against the production build after the final calendar changes.
+
+The secret scan found local account passwords in `SETUP_AND_RUN.txt`; they were replaced with references to `.env`, without modifying the actual credentials. The browser login helper now clears passwords before response/navigation assertions so failure snapshots do not capture them. Subsequent browser runs replaced the earlier generated failure artifacts. No environment file, local database, credentials, or tokens were added to Git.
+
+README documents the resulting flows. The development server was restarted at `http://localhost:3000`. These checks cover the local demonstration environment; production HTTPS and external hosting were not tested. No migrations or service authorization changes were required.
+
+## New-PC setup guide — 12 October 2026, Asia/Colombo
+
+- Added root-level `SETUP_AND_RUN.txt` with Windows prerequisites, fresh installation, private environment setup, daily startup/shutdown, checks, browser tests, local build preview, updates, troubleshooting, and existing-server configuration.
+- Checked instructions against the repository scripts, environment template, Prisma configuration, Playwright configuration, and installed Next.js CLI guide. All 16 referenced npm script names exist in package.json. Official Node.js, PostgreSQL, and Git download pages were checked.
+- `npm run check:secrets` passed across 146 Git-visible source and production browser files, including the new guide. `git diff --check` passed for tracked changes.
+- This is a documentation-only change. No fresh installation on another PC was performed, and lint, typecheck, unit tests, database integration tests, build, and browser tests were not rerun for this guide.
+
+## Local database recovery — 12 October 2026, Asia/Colombo
+
+- Reproduced the infrastructure condition behind the reported Prisma `P1001`: no listener on `127.0.0.1:54329`, with an existing local PostgreSQL data directory.
+- `npm run db:local` passed and restarted the existing isolated cluster. A query using the runtime `DATABASE_URL` passed: two users, six resources, three reservations. Both `reservation_valid_range` and `reservation_no_overlap_confirmed` remain installed.
+- `npm run dev` started at `http://localhost:3000`. HTTP checks passed for the login page (200), seeded member sign-in (200), authenticated dashboard (200), and verification-session sign-out (200). Credentials and session cookies were not printed.
+- Only documentation changed; no migrations, reseeding, or application changes were needed. Lint, typecheck, unit tests, integration tests, build, and browser tests were not rerun for this recovery. Prior results below retain their original verification date.
+
 Date: **11 October 2026, Asia/Colombo**. Environment: Windows, Node **24.8.0**, npm **11.6.0**, isolated PostgreSQL **18.3**, Next.js **16.4.0**.
 
 | Check                                 | Result      | Evidence                                                                                                                     |
