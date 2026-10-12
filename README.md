@@ -51,6 +51,8 @@ npm run dev
 
 Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in before opening the dashboard. A "Please sign in to continue" error means the request has no authenticated session; reseeding is not required.
 
+`npm run dev` regenerates the ignored Prisma client before starting Next.js. If another command reports `Can't resolve '@/generated/prisma/client'`, run `npm run db:generate` and retry. Client generation does not migrate, seed, or reset the database.
+
 ### Seeded accounts in this local workspace
 
 Only the isolated `LOCAL_POSTGRES=true` cluster on port `54329` provisions these fixed demonstration accounts. Existing PostgreSQL services use a private administrator:

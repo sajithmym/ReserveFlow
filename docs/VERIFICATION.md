@@ -1,5 +1,17 @@
 # Verification report
 
+## Missing Prisma client repair — 12 October 2026, Asia/Colombo
+
+Confirmed `src/generated/prisma/client.ts` was absent. Added `predev: prisma generate` so `npm run dev` recreates the ignored client before Next.js loads instrumentation. Existing build/postinstall generation and database configuration remain unchanged; no migrations, seeding, or application data changes were performed. Added troubleshooting instructions to README.md and SETUP_AND_RUN.txt. The referenced ReserveFlow-Prompts folder is absent in this checkout; no assessment specifications were recreated or changed.
+
+- `npm run db:generate`: PASS; generated Prisma Client 7.10.0 at the configured path.
+- `npm run dev`: PASS; automatic predev generation completed, Next.js became ready, and `http://localhost:3000/login` returned HTTP 200 without the missing-module error. The verification server was stopped afterward to free port 3000.
+- `npm run lint`: PASS, exit 0.
+- `npm run typecheck`: PASS, exit 0.
+- `npm run test`: PASS, 32 tests in four files.
+- `npm run build`: PASS, exit 0; compilation, TypeScript and route generation completed.
+- `npm run test:db`: FAILED, exit 1; the configured PostgreSQL server reports that database `reserveflow_test` does not exist (two failed tests, 29 skipped). Provision/migrate the dedicated test database before rerunning; tests were not redirected to the application database.
+
 ## Full security review and repairs — 12 October 2026, Asia/Colombo
 
 Final file checks passed: Prettier on changed TypeScript/scripts/docs; git diff --check; SVG XML parsing; unchanged original prompts and previous migrations; private files excluded by Git; development listener verified on 127.0.0.1:3000.

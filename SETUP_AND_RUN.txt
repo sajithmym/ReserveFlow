@@ -387,6 +387,15 @@ I. Build or package installation fails
    issues. npm run db:generate regenerates the Prisma client if needed.
    Preserve the pinned lockfile and resolve the reported error before continuing.
 
+J. Module not found: Can't resolve '@/generated/prisma/client'
+   The generated client is not committed to Git. npm run dev now generates it
+   automatically before starting Next.js. To regenerate it manually, run:
+
+     npm run db:generate
+
+   Then retry the failed command. Generation does not change database tables,
+   passwords, or reservation history; no reseeding or db push is needed.
+
 
 12. ALTERNATIVE: USE AN EXISTING LOCAL POSTGRESQL SERVER
 ------------------------------------------------
