@@ -7,8 +7,28 @@ import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { fromLocalInput } from "@/lib/time";
 import { Prisma } from "@/generated/prisma/client";
 import { getResource } from "./resources";
+import { recordAudit } from "./audit";
 
 const include = { resource: true, user: { select: { name: true } } } as const;
+function auditSnapshot(booking: {
+  id: string;
+  resourceId: string;
+  userId: string;
+  title: string;
+  startAt: Date;
+  endAt: Date;
+  status: string;
+}) {
+  return {
+    id: booking.id,
+    resourceId: booking.resourceId,
+    userId: booking.userId,
+    title: booking.title,
+    startAt: booking.startAt.toISOString(),
+    endAt: booking.endAt.toISOString(),
+    status: booking.status,
+  };
+}
 function future(startAt: Date) {
   if (startAt <= new Date())
     throw new AppError("VALIDATION_ERROR", "Start time must be in the future.");
@@ -74,7 +94,15 @@ export async function createReservation(input: unknown) {
   return db.$transaction(async (tx) => {
     await lockResource(tx, data.resourceId);
     future(data.startAt);
-    return tx.reservation.create({ data: { ...data, userId: user.id } });
+    const reservation = await tx.reservation.create({ data: { ...data, userId: user.id } });
+    await recordAudit(tx, {
+      actorId: user.id,
+      action: "RESERVATION_CREATE",
+      entity: "RESERVATION",
+      entityId: reservation.id,
+      after: auditSnapshot(reservation),
+    });
+    return reservation;
   });
 }
 export async function updateReservation(id: unknown, input: unknown) {
@@ -97,7 +125,16 @@ export async function updateReservation(id: unknown, input: unknown) {
     if (current.status !== "CONFIRMED" || current.startAt <= new Date())
       throw new AppError("INVALID_STATE", "Only future confirmed reservations can be rescheduled.");
     future(data.startAt);
-    return tx.reservation.update({ where: { id: bookingId }, data });
+    const reservation = await tx.reservation.update({ where: { id: bookingId }, data });
+    await recordAudit(tx, {
+      actorId: user.id,
+      action: "RESERVATION_UPDATE",
+      entity: "RESERVATION",
+      entityId: reservation.id,
+      before: auditSnapshot(current),
+      after: auditSnapshot(reservation),
+    });
+    return reservation;
   });
 }
 export async function cancelReservation(id: unknown) {
@@ -113,7 +150,19 @@ export async function cancelReservation(id: unknown) {
     if (current.status === "CANCELLED") return current;
     if (current.endAt <= new Date())
       throw new AppError("INVALID_STATE", "Completed reservations cannot be cancelled.");
-    return tx.reservation.update({ where: { id: bookingId }, data: { status: "CANCELLED" } });
+    const reservation = await tx.reservation.update({
+      where: { id: bookingId },
+      data: { status: "CANCELLED" },
+    });
+    await recordAudit(tx, {
+      actorId: user.id,
+      action: "RESERVATION_CANCEL",
+      entity: "RESERVATION",
+      entityId: reservation.id,
+      before: auditSnapshot(current),
+      after: auditSnapshot(reservation),
+    });
+    return reservation;
   });
 }
 export async function checkAvailability(input: unknown) {

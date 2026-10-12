@@ -413,6 +413,9 @@ provision their own private accounts rather than using these demo logins.
      TEST_DATABASE_URL=postgresql://TEST_OWNER:ENCODED_PASSWORD@HOST:PORT/reserveflow_test
      BETTER_AUTH_URL=http://localhost:3000
      BETTER_AUTH_SECRET=YOUR_UNIQUE_RANDOM_SECRET
+     NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=YOUR_BASE64_ENCODED_32_BYTE_KEY
+     ADMIN_BOOTSTRAP_EMAIL=admin@example.local
+     ADMIN_BOOTSTRAP_PASSWORD=YOUR_PRIVATE_INITIAL_PASSWORD
 
    Replace every placeholder. URL-encode special characters in connection-string
    passwords. The fixed demo logins come from scripts/demo-accounts.mjs.
@@ -438,15 +441,22 @@ provision their own private accounts rather than using these demo logins.
      GRANT SELECT, INSERT, UPDATE ON "User", "Account", "Verification",
        "Resource", "Reservation" TO APP_USER;
      GRANT SELECT, INSERT, UPDATE, DELETE ON "Session", "Verification" TO APP_USER;
+     GRANT SELECT, INSERT ON "AuditEvent" TO APP_USER;
      GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO APP_USER;
 
    The runtime login must not own the schema or have schema modification or
    reservation/resource deletion privileges. npm run db:grant intentionally
    supports only the automatic local cluster.
 
-5. Seed using the configured migration owner:
+5. Seed resources using the configured migration owner, then create the one private administrator:
 
      npm run db:seed
+     npm run db:bootstrap-admin
+
+   `db:seed` does not create the documented public demo accounts outside the
+   isolated LOCAL_POSTGRES=true cluster. After a successful bootstrap, save the
+   private password in a password manager and remove ADMIN_BOOTSTRAP_EMAIL and
+   ADMIN_BOOTSTRAP_PASSWORD from .env.
 
 6. Apply migrations to the dedicated test database. Temporarily set the
    migration URL in this terminal to your actual TEST_DATABASE_URL value:

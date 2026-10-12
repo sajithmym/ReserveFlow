@@ -83,6 +83,7 @@ afterAll(async () => {
   await db.resource.deleteMany({
     where: { id: { in: [resourceId, secondId, ...extraResources] } },
   });
+  await db.auditEvent.deleteMany({ where: { actorId: { in: [memberId, otherId] } } });
   await db.user.deleteMany({ where: { id: { in: [memberId, otherId] } } });
   await db.$disconnect();
 });
@@ -91,6 +92,16 @@ describe("real PostgreSQL booking integrity", () => {
   it("restricts member filtering to administrators without changing booking ownership", async () => {
     const booking = await createReservation(input());
     expect(booking.userId).toBe(memberId);
+    await expect(
+      db.auditEvent.findFirst({
+        where: {
+          actorId: memberId,
+          entity: "RESERVATION",
+          entityId: booking.id,
+          action: "RESERVATION_CREATE",
+        },
+      }),
+    ).resolves.toMatchObject({ after: expect.objectContaining({ userId: memberId }) });
     await expect(
       listReservations(filtersSchema.parse({ memberId: otherId })),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

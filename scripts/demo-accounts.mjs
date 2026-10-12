@@ -13,6 +13,8 @@ export const DEMO_ACCOUNTS = Object.freeze({
 });
 
 export function getDemoAccounts() {
+  if (process.env.LOCAL_POSTGRES !== "true")
+    throw new Error("Published demo accounts require the isolated LOCAL_POSTGRES=true cluster.");
   let connections;
   try {
     connections = [

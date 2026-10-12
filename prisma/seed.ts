@@ -16,10 +16,11 @@ const accountSchema = z.object({
   email: z.email(),
   password: z.string().min(LIMITS.passwordMin).max(LIMITS.passwordMax),
 });
-const credentials = z
-  .object({ ADMIN: accountSchema, MEMBER: accountSchema })
-  .parse(getDemoAccounts());
-if (credentials.ADMIN.email === credentials.MEMBER.email)
+const localDemo = process.env.LOCAL_POSTGRES === "true";
+const credentials = localDemo
+  ? z.object({ ADMIN: accountSchema, MEMBER: accountSchema }).parse(getDemoAccounts())
+  : null;
+if (credentials && credentials.ADMIN.email === credentials.MEMBER.email)
   throw new Error("Seed accounts must have different emails.");
 const seeds = [
   {
@@ -81,68 +82,71 @@ const seeds = [
   },
 ] as const;
 try {
-  const admin = await provision(
-    credentials.ADMIN.email,
-    credentials.ADMIN.password,
-    "Alex Morgan",
-    "ADMIN",
-  );
-  const member = await provision(
-    credentials.MEMBER.email,
-    credentials.MEMBER.password,
-    "Sam Perera",
-    "MEMBER",
-  );
   for (const resource of seeds)
     await db.resource.upsert({ where: { id: resource.id }, create: resource, update: {} });
-  const tomorrow = new Date(Date.now() + 86400000);
-  const day = formatInTimeZone(tomorrow, TIME_ZONE, DATE_FORMATS.dateInput);
-  const bookings = [
-    {
-      id: "00000000-0000-4000-8000-000000000011",
-      resourceId: seeds[0].id,
-      userId: member.id,
-      title: "Product planning session",
-      start: "09:00",
-      end: "10:00",
-    },
-    {
-      id: "00000000-0000-4000-8000-000000000012",
-      resourceId: seeds[1].id,
-      userId: admin.id,
-      title: "Design review",
-      start: "10:30",
-      end: "11:30",
-    },
-    {
-      id: "00000000-0000-4000-8000-000000000013",
-      resourceId: seeds[2].id,
-      userId: member.id,
-      title: "Team workshop",
-      start: "14:00",
-      end: "16:00",
-    },
-  ];
-  for (const { start, end, ...booking } of bookings) {
-    if (await db.reservation.findUnique({ where: { id: booking.id } })) continue;
-    const startAt = fromZonedTime(`${day}T${start}`, TIME_ZONE);
-    const endAt = fromZonedTime(`${day}T${end}`, TIME_ZONE);
-    // Keep a rerun safe even after a user has booked this demonstration interval.
-    if (
-      await db.reservation.findFirst({
-        where: {
-          resourceId: booking.resourceId,
-          status: "CONFIRMED",
-          startAt: { lt: endAt },
-          endAt: { gt: startAt },
-        },
-      })
-    )
-      continue;
-    await db.reservation.create({ data: { ...booking, startAt, endAt } });
+  if (credentials) {
+    const admin = await provision(
+      credentials.ADMIN.email,
+      credentials.ADMIN.password,
+      "Alex Morgan",
+      "ADMIN",
+    );
+    const member = await provision(
+      credentials.MEMBER.email,
+      credentials.MEMBER.password,
+      "Sam Perera",
+      "MEMBER",
+    );
+    const tomorrow = new Date(Date.now() + 86400000);
+    const day = formatInTimeZone(tomorrow, TIME_ZONE, DATE_FORMATS.dateInput);
+    const bookings = [
+      {
+        id: "00000000-0000-4000-8000-000000000011",
+        resourceId: seeds[0].id,
+        userId: member.id,
+        title: "Product planning session",
+        start: "09:00",
+        end: "10:00",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000012",
+        resourceId: seeds[1].id,
+        userId: admin.id,
+        title: "Design review",
+        start: "10:30",
+        end: "11:30",
+      },
+      {
+        id: "00000000-0000-4000-8000-000000000013",
+        resourceId: seeds[2].id,
+        userId: member.id,
+        title: "Team workshop",
+        start: "14:00",
+        end: "16:00",
+      },
+    ];
+    for (const { start, end, ...booking } of bookings) {
+      if (await db.reservation.findUnique({ where: { id: booking.id } })) continue;
+      const startAt = fromZonedTime(`${day}T${start}`, TIME_ZONE);
+      const endAt = fromZonedTime(`${day}T${end}`, TIME_ZONE);
+      if (
+        await db.reservation.findFirst({
+          where: {
+            resourceId: booking.resourceId,
+            status: "CONFIRMED",
+            startAt: { lt: endAt },
+            endAt: { gt: startAt },
+          },
+        })
+      )
+        continue;
+      await db.reservation.create({ data: { ...booking, startAt, endAt } });
+    }
   }
   console.log(
-    "Seed complete: two local demo accounts, six resources, and non-overlapping reservations. Login details are in README.md and SETUP_AND_RUN.txt.",
+    credentials
+      ? "Seed complete: local demo accounts, resources, and non-overlapping reservations."
+      : "Seed complete: resources only. Run npm run db:bootstrap-admin with private bootstrap credentials to create the first administrator.",
   );
 } finally {
   await db.$disconnect();

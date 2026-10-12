@@ -13,6 +13,7 @@ import {
 import { AppError } from "@/lib/errors";
 import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { Prisma } from "@/generated/prisma/client";
+import { recordAudit } from "./audit";
 
 // Never return Account or Session data to the browser.
 const select = {
@@ -24,6 +25,21 @@ const select = {
   createdAt: true,
   _count: { select: { reservations: true } },
 } as const;
+function auditSnapshot(member: {
+  id: string;
+  name: string;
+  email: string;
+  role: "ADMIN" | "MEMBER";
+  isActive: boolean;
+}) {
+  return {
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    role: member.role,
+    isActive: member.isActive,
+  };
+}
 export async function listMembers(input: Filters) {
   await requireAdmin();
   const filters = filtersSchema.parse(input);
@@ -106,6 +122,13 @@ export async function createMember(input: unknown) {
       await tx.account.create({
         data: { userId: user.id, accountId: user.id, providerId: "credential", password: encoded },
       });
+      await recordAudit(tx, {
+        actorId: actor.id,
+        action: "MEMBER_CREATE",
+        entity: "USER",
+        entityId: user.id,
+        after: auditSnapshot(user),
+      });
       return user;
     });
   } catch (error) {
@@ -130,13 +153,25 @@ export async function updateMember(inputId: unknown, input: unknown) {
         });
       if (encoded || !data.isActive || existing.role !== data.role || existing.email !== data.email)
         await tx.session.deleteMany({ where: { userId: id } });
+      await recordAudit(tx, {
+        actorId: actor.id,
+        action: "MEMBER_UPDATE",
+        entity: "USER",
+        entityId: member.id,
+        before: auditSnapshot(existing),
+        after: auditSnapshot(member),
+      });
       return member;
     });
   } catch (error) {
     duplicateEmail(error);
   }
 }
-export async function setMemberActive(inputId: unknown, inputActive: unknown) {
+export async function setMemberActive(
+  inputId: unknown,
+  inputActive: unknown,
+  action = "MEMBER_STATUS_CHANGE",
+) {
   const actor = await requireAdmin();
   const id = idSchema.parse(inputId),
     isActive = activeSchema.parse(inputActive);
@@ -147,10 +182,18 @@ export async function setMemberActive(inputId: unknown, inputActive: unknown) {
     await protectAdmin(tx, id, existing.role, isActive);
     const member = await tx.user.update({ where: { id }, data: { isActive }, select });
     if (!isActive) await tx.session.deleteMany({ where: { userId: id } });
+    await recordAudit(tx, {
+      actorId: actor.id,
+      action,
+      entity: "USER",
+      entityId: member.id,
+      before: auditSnapshot(existing),
+      after: auditSnapshot(member),
+    });
     return member;
   });
 }
 // Logical deletion: preserve the identity, email uniqueness, and reservation history.
 export async function archiveMember(id: unknown) {
-  return setMemberActive(id, false);
+  return setMemberActive(id, false, "MEMBER_ARCHIVE");
 }

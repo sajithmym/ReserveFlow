@@ -66,6 +66,7 @@ beforeEach(async () => {
 afterAll(async () => {
   await db.reservation.deleteMany({ where: { resourceId } });
   await db.resource.delete({ where: { id: resourceId } });
+  await db.auditEvent.deleteMany({ where: { actorId: { in: [adminId, secondAdminId] } } });
   await db.user.deleteMany({ where: { id: { in: [...ids] } } });
   await db.$disconnect();
 });

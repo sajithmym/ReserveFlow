@@ -3,8 +3,29 @@ import { db } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
 import { idSchema, resourceSchema, type Filters } from "@/lib/validators";
 import { AppError } from "@/lib/errors";
+import { recordAudit } from "./audit";
 import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { Prisma } from "@/generated/prisma/client";
+
+function auditSnapshot(resource: {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  location: string | null;
+  capacity: number | null;
+  isActive: boolean;
+}) {
+  return {
+    id: resource.id,
+    name: resource.name,
+    description: resource.description,
+    category: resource.category,
+    location: resource.location,
+    capacity: resource.capacity,
+    isActive: resource.isActive,
+  };
+}
 
 export async function listResources(filters: Filters) {
   const user = await requireUser();
@@ -76,11 +97,22 @@ export async function getResource(input: unknown) {
   return resource;
 }
 export async function createResource(input: unknown) {
-  await requireAdmin();
-  return db.resource.create({ data: resourceSchema.parse(input) });
+  const actor = await requireAdmin();
+  const data = resourceSchema.parse(input);
+  return db.$transaction(async (tx) => {
+    const resource = await tx.resource.create({ data });
+    await recordAudit(tx, {
+      actorId: actor.id,
+      action: "RESOURCE_CREATE",
+      entity: "RESOURCE",
+      entityId: resource.id,
+      after: auditSnapshot(resource),
+    });
+    return resource;
+  });
 }
 export async function updateResource(id: unknown, input: unknown) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const resourceId = idSchema.parse(id);
   const data = resourceSchema.parse(input);
   return db.$transaction(async (tx) => {
@@ -88,11 +120,21 @@ export async function updateResource(id: unknown, input: unknown) {
       { id: string }[]
     >`SELECT "id" FROM "Resource" WHERE "id" = ${resourceId}::uuid FOR UPDATE`;
     if (!rows.length) throw new AppError("NOT_FOUND", "Resource not found.");
-    return tx.resource.update({ where: { id: resourceId }, data });
+    const before = await tx.resource.findUniqueOrThrow({ where: { id: resourceId } });
+    const resource = await tx.resource.update({ where: { id: resourceId }, data });
+    await recordAudit(tx, {
+      actorId: actor.id,
+      action: "RESOURCE_UPDATE",
+      entity: "RESOURCE",
+      entityId: resource.id,
+      before: auditSnapshot(before),
+      after: auditSnapshot(resource),
+    });
+    return resource;
   });
 }
 export async function setResourceActive(id: unknown, isActive: boolean) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   const resourceId = idSchema.parse(id);
   if (typeof isActive !== "boolean")
     throw new AppError("VALIDATION_ERROR", "Invalid resource status.");
@@ -101,6 +143,16 @@ export async function setResourceActive(id: unknown, isActive: boolean) {
       { id: string }[]
     >`SELECT "id" FROM "Resource" WHERE "id" = ${resourceId}::uuid FOR UPDATE`;
     if (!rows.length) throw new AppError("NOT_FOUND", "Resource not found.");
-    return tx.resource.update({ where: { id: resourceId }, data: { isActive } });
+    const before = await tx.resource.findUniqueOrThrow({ where: { id: resourceId } });
+    const resource = await tx.resource.update({ where: { id: resourceId }, data: { isActive } });
+    await recordAudit(tx, {
+      actorId: actor.id,
+      action: isActive ? "RESOURCE_ACTIVATE" : "RESOURCE_DEACTIVATE",
+      entity: "RESOURCE",
+      entityId: resource.id,
+      before: auditSnapshot(before),
+      after: auditSnapshot(resource),
+    });
+    return resource;
   });
 }

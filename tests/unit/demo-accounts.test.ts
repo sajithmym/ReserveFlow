@@ -7,6 +7,7 @@ afterEach(() => vi.unstubAllEnvs());
 describe("public local demonstration accounts", () => {
   it("uses documented fixed logins without seed password environment variables", () => {
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("LOCAL_POSTGRES", "true");
     vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@127.0.0.1:54329/reserveflow_test");
     vi.stubEnv("SEED_ADMIN_PASSWORD", undefined);
     vi.stubEnv("SEED_MEMBER_PASSWORD", undefined);
@@ -23,22 +24,31 @@ describe("public local demonstration accounts", () => {
   });
   it("refuses public demo credentials for a remote database", () => {
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("LOCAL_POSTGRES", "true");
     vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@remote.example/reserveflow");
     expect(() => getDemoAccounts()).toThrow("local development databases");
   });
   it("refuses production mode even when the database is local", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("LOCAL_POSTGRES", "true");
     vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@localhost/reserveflow");
     expect(() => getDemoAccounts()).toThrow("local development databases");
   });
   it("refuses a remote runtime database even when the migration database is local", () => {
     vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("LOCAL_POSTGRES", "true");
     vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@localhost/reserveflow");
     vi.stubEnv("DATABASE_URL", "postgresql://app@remote.example/reserveflow");
     expect(() => getDemoAccounts()).toThrow("local development databases");
   });
   it("reports malformed connection configuration without exposing it", () => {
+    vi.stubEnv("LOCAL_POSTGRES", "true");
     vi.stubEnv("MIGRATION_DATABASE_URL", "invalid-private-connection");
     expect(() => getDemoAccounts()).toThrow("Configure a local PostgreSQL connection");
+  });
+  it("refuses public demo credentials outside the isolated cluster", () => {
+    vi.stubEnv("LOCAL_POSTGRES", "false");
+    vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@127.0.0.1:54329/reserveflow");
+    expect(() => getDemoAccounts()).toThrow("isolated LOCAL_POSTGRES=true");
   });
 });
