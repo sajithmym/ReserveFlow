@@ -53,7 +53,7 @@ Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in 
 
 ### Seeded accounts in this local workspace
 
-The local seed provisions these fixed demonstration accounts:
+Only the isolated `LOCAL_POSTGRES=true` cluster on port `54329` provisions these fixed demonstration accounts. Existing PostgreSQL services use a private administrator:
 
 | Role          | Email                      | Password                                                           |
 | ------------- | -------------------------- | ------------------------------------------------------------------ |
@@ -62,7 +62,7 @@ The local seed provisions these fixed demonstration accounts:
 
 These are intentionally published local-demo credentials. Their single definition is `scripts/demo-accounts.mjs`; the seed and local verification tools use it. Seed account passwords are not stored in `.env`. Setup still generates private database passwords and the authentication secret there. The seed refuses remote databases and production mode.
 
-Setup creates an independent cluster in `.local/postgres`, listens only on **127.0.0.1:54329**, and creates `reserveflow` and `reserveflow_test`. It does not modify the existing PostgreSQL system service. It applies both migrations, grants the app role limited runtime access, seeds two accounts and six resources, and migrates the test database.
+Setup creates an independent cluster in `.local/postgres`, listens only on **127.0.0.1:54329**, and creates `reserveflow` and `reserveflow_test`. It does not modify the existing PostgreSQL system service. It applies all committed migrations, grants the app role limited runtime access, seeds two accounts and six resources, and migrates the test database. The development and preview servers bind to `127.0.0.1` by default.
 
 The seed adds three non-overlapping reservations on the next Sri Lanka calendar day. Rerunning it preserves existing records and password hashes, skips existing demonstration reservations, and does not reset user edits. Administrators can explicitly replace a password from Members > Edit member. To restore the documented passwords on the isolated local demo, run `npm run db:demo-passwords`; this revokes only those two accounts' sessions and preserves their identities and reservations. Regular seeding never resets stored passwords.
 
@@ -80,32 +80,34 @@ The local bootstrap owner is a development-only database superuser. The runtime 
 
 1. On a PostgreSQL server running on this PC (`localhost` / `127.0.0.1`), create a dedicated empty database (and a separate test database ending in `_test`). Ensure the migration identity can install `btree_gist`.
 2. Copy `.env.example` to `.env`, set `LOCAL_POSTGRES=false`, and replace all placeholders with unique private values.
-3. Set `MIGRATION_DATABASE_URL` for the schema owner and `DATABASE_URL` for the app's runtime identity. Set `TEST_DATABASE_URL` to the isolated test database. Provision the runtime role separately if using different identities.
+3. Set `MIGRATION_DATABASE_URL` for the schema owner and `DATABASE_URL` for a separate restricted runtime identity. Set `TEST_DATABASE_URL` to a separate local `_test` database owned by a test-only role. Do not use the PostgreSQL superuser for app runtime. Generate unique passwords for these roles.
 4. Run:
 
 ```text
 npm ci
 npm run db:migrate
+npm run db:grant
 npm run db:seed
 npm run db:bootstrap-admin
 npm run dev
 ```
 
-`db:seed` creates public demonstration accounts only for the isolated `LOCAL_POSTGRES=true` cluster. On an existing PostgreSQL server it seeds resources only; set unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`, run `npm run db:bootstrap-admin` once, then remove both variables. For a separate runtime identity, grant schema usage plus SELECT/INSERT/UPDATE on the application tables, SELECT/INSERT on `AuditEvent`, and DELETE on Session/Verification for session cleanup. The local grant helper documents these exact statements but intentionally runs only for `LOCAL_POSTGRES=true`. Apply migrations to the test DB with `MIGRATION_DATABASE_URL` temporarily set to `TEST_DATABASE_URL` in the command environment.
+`db:seed` creates public demonstration accounts only for the isolated `LOCAL_POSTGRES=true` cluster on port `54329`. On an existing PostgreSQL server it seeds resources only; set unique `ADMIN_BOOTSTRAP_EMAIL` and `ADMIN_BOOTSTRAP_PASSWORD`, run `npm run db:bootstrap-admin` once, then remove both variables. Bootstrap refuses to create another administrator when one is already active; use Members to manage subsequent accounts. `db:grant` supports both local setup modes and gives the runtime role insert-only access to private `AuditEvent` records and CRUD access to persistent `RateLimit` records. App startup checks actual PostgreSQL permissions and refuses elevated/schema-owner roles or missing required grants. Apply migrations to the test DB with `MIGRATION_DATABASE_URL` temporarily set to `TEST_DATABASE_URL` in the command environment.
 
-| Environment variable                                | Purpose                                                                   |
-| --------------------------------------------------- | ------------------------------------------------------------------------- |
-| `DATABASE_URL`                                      | Runtime PostgreSQL connection; server-only                                |
-| `MIGRATION_DATABASE_URL`                            | Migration/seed owner; defaults to runtime URL if omitted                  |
-| `TEST_DATABASE_URL`                                 | Explicitly isolated database ending in `_test`                            |
-| `BETTER_AUTH_URL`                                   | Exact app origin, e.g. `http://localhost:3000`; HTTPS in production       |
-| `BETTER_AUTH_SECRET`                                | High entropy secret of at least 32 characters                             |
-| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`                | Stable base64-encoded 32-byte key shared by all deployed app instances    |
-| `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD` | One-time private administrator bootstrap; remove after use                |
-| `LOCAL_POSTGRES`                                    | `true` only for the isolated local cluster helper                         |
-| `LOCAL_DB_OWNER_PASSWORD`, `LOCAL_DB_APP_PASSWORD`  | Private bootstrap credentials generated by setup                          |
-| `PG_BIN`                                            | Optional directory containing PostgreSQL executables                      |
-| `PLAYWRIGHT_CHANNEL`                                | Optional installed browser channel such as `chrome` or `msedge` for tests |
+| Environment variable                                | Purpose                                                                                                           |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                      | Runtime PostgreSQL connection; server-only                                                                        |
+| `MIGRATION_DATABASE_URL`                            | Migration/seed owner; defaults to runtime URL if omitted                                                          |
+| `TEST_DATABASE_URL`                                 | Explicitly isolated database ending in `_test`                                                                    |
+| `BETTER_AUTH_URL`                                   | Exact app origin, e.g. `http://localhost:3000`; HTTPS in production                                               |
+| `BETTER_AUTH_SECRET`                                | High entropy secret of at least 32 characters                                                                     |
+| `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`                | Stable base64-encoded 32-byte key shared by all deployed app instances                                            |
+| `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD` | One-time private administrator bootstrap; remove after use                                                        |
+| `AUTH_TRUSTED_IP_HEADER`                            | Optional proxy-overwritten `x-real-ip`, `cf-connecting-ip`, or `x-forwarded-for`; see deployment boundaries below |
+| `LOCAL_POSTGRES`                                    | `true` only for the isolated local cluster helper                                                                 |
+| `LOCAL_DB_OWNER_PASSWORD`, `LOCAL_DB_APP_PASSWORD`  | Private bootstrap credentials generated by setup                                                                  |
+| `PG_BIN`                                            | Optional directory containing PostgreSQL executables                                                              |
+| `PLAYWRIGHT_CHANNEL`                                | Optional installed browser channel such as `chrome` or `msedge` for tests                                         |
 
 Keep `.env`, `.local`, browser traces, and private credentials out of Git. The explicitly published demonstration account passwords above are public local-demo values. `.env.example` contains placeholders only. There are no `NEXT_PUBLIC_` secrets.
 
@@ -172,7 +174,7 @@ npm run test:e2e
 
 Playwright passes the selected origin to the app's `BETTER_AUTH_URL` for its server process. The private `.env` file stays unchanged. Only local HTTP origins are accepted for browser tests.
 
-The integration configuration refuses to run without an explicit `_test` database. It deletes only UUID-scoped test fixtures. It verifies actual SQL constraints, independent concurrent connections, service locking, permissions, invalid states, cancellation and conflicting edits. Browser tests create and remove their own resource/bookings in the demo database; use only a local demonstration environment for them. Never run them against production or another person's database.
+The integration configuration requires an explicit local `_test` database, rejects superuser credentials, and refuses aliases of the application database. It deletes only scoped test fixtures. It verifies actual SQL constraints, independent concurrent connections, persistent throttling, service locking, permissions, invalid states, cancellation and conflicting edits. Browser tests create and remove their own resource/bookings in the isolated demo database; use only a local demonstration environment for them. Never run them against production or another person's database.
 
 Recorded results and limitations: [docs/VERIFICATION.md](docs/VERIFICATION.md). Test output is the authority; do not assume a command passed just because it appears here.
 
@@ -182,7 +184,13 @@ Better Auth supplies opaque database-backed sessions, signed HttpOnly/SameSite c
 
 Next.js Server Actions retain their origin/host protections. The auth route bounds request bodies to 8 KiB; actions to 128 KiB. Basic security headers and a baseline CSP are present. Unexpected failures expose a generic message and log only an error class and trace identifier.
 
-The documented seed account passwords are public and restricted to the isolated `LOCAL_POSTGRES=true` local-development cluster. A hosted environment must provision different private accounts; normal existing-server seeding cannot create these accounts. This is a local technical assessment, **not an audited production platform**. Login rate limiting uses in-process memory and needs a shared store and trusted proxy/IP configuration for a multi-instance deployment. There is no public identity verification, self-service password recovery, or operational monitoring. Production must use HTTPS and a TLS-protected database connection; the app rejects remote database URLs without `sslmode=require` or stronger. A per-request CSP nonce removes unsafe script/style allowances in production. Limits on resource selectors/availability schedules keep reads bounded; a much larger organization would need server-side searchable selectors.
+The documented seed account passwords are public and restricted to the isolated `LOCAL_POSTGRES=true` cluster on port `54329`. Existing-server seeding cannot create these accounts. Login throttling uses atomic PostgreSQL counters shared across app instances and restarts. Forwarded-IP headers are ignored by default; requests share a per-path bucket when no trusted IP source exists. Configure `AUTH_TRUSTED_IP_HEADER` only behind a reverse proxy that overwrites that header and prevents direct access to the app origin. A proxy/WAF should also enforce connection and request limits. Database-backed throttling follows the [Better Auth storage guidance](https://better-auth.com/docs/concepts/rate-limit).
+
+Account access/password changes revoke stored sessions and set a cutoff that invalidates logins started before the change. Resource and booking mutations lock/recheck the actor before taking resource/reservation locks, so stale role/account snapshots cannot authorize queued writes. Audit events capture before/after changes and a password-change flag, never passwords/hashes/tokens; the runtime can append them but cannot read, edit, truncate, or delete them. Only the migration/maintenance identity can inspect audit history.
+
+Non-local app origins require HTTPS; remote database URLs require certificate verification with `sslmode=verify-full`. Local HTTP previews remain supported. The CSP runs from `src/proxy.ts`, generates a fresh nonce for every page request, and removes `unsafe-inline`/`unsafe-eval` in production. The root nonce bridge supplies the original document nonce to Radix's scroll-lock stylesheet library across client navigation. Only React streaming's exact `display:none` style attribute is hash-allowed. New UI libraries require browser checks against this policy. HSTS is emitted only for configured HTTPS production origins. Deploy a private-account installation behind HTTPS; override the default loopback binding explicitly when the reverse proxy requires it (`npm run start -- --hostname 0.0.0.0`) and protect that origin at the network boundary. Supply only runtime credentials to deployed app processes; keep migration, test, and bootstrap credentials in separate administrative/CI environments.
+
+This is a local technical assessment, **not an audited production platform**. External TLS/proxy hosting, email identity verification, password recovery, MFA, operational alerting, backup restoration, and audit-retention operations are not included. Limits on resource selectors/availability schedules keep reads bounded; a larger organization would need searchable server-side selectors.
 
 The npm audit and pinned override decisions are documented in the verification report. Do not run `npm audit fix --force` blindly: it proposes incompatible framework/tooling downgrades for some transitive findings.
 

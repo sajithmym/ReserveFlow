@@ -3,6 +3,7 @@ erDiagram
   Resource ||--o{ Reservation : reserved_for
   User ||--o{ Account : authenticates_with
   User ||--o{ Session : has
+  User ||--o{ AuditEvent : performed
   User {
     uuid id PK
     text email UK
@@ -11,6 +12,7 @@ erDiagram
     text image "nullable"
     Role role "ADMIN or MEMBER"
     boolean isActive
+    timestamptz sessionsInvalidBefore "nullable, invalidates older logins"
     timestamptz createdAt
     timestamptz updatedAt
   }
@@ -68,4 +70,20 @@ erDiagram
     timestamptz expiresAt
     timestamptz createdAt
     timestamptz updatedAt
+  }
+  AuditEvent {
+    uuid id PK
+    uuid actorId FK
+    text action
+    text entity
+    uuid entityId "record reference, history retained"
+    jsonb before "nullable, no credentials"
+    jsonb after "nullable, no credentials"
+    timestamptz createdAt
+  }
+  RateLimit {
+    uuid id PK
+    text key UK
+    integer count "positive"
+    bigint lastRequest "epoch milliseconds"
   }

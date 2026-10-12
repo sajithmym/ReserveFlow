@@ -25,6 +25,7 @@ model User {
   image         String?
   role          Role          @default(MEMBER)
   isActive      Boolean       @default(true)
+  sessionsInvalidBefore DateTime? @db.Timestamptz(3)
   createdAt     DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime      @updatedAt @db.Timestamptz(3)
   reservations  Reservation[]
@@ -87,6 +88,14 @@ model Verification {
   createdAt  DateTime @default(now()) @db.Timestamptz(3)
   updatedAt  DateTime @updatedAt @db.Timestamptz(3)
   @@index([identifier])
+}
+
+model RateLimit {
+  id          String @id @default(uuid()) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+  @@index([lastRequest])
 }
 
 model Resource {

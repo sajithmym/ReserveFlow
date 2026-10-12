@@ -11,8 +11,19 @@ const keys = [
   "DATABASE_URL",
   "MIGRATION_DATABASE_URL",
   "TEST_DATABASE_URL",
+  "ADMIN_BOOTSTRAP_PASSWORD",
+  "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
 ];
 const values = keys.map((key) => process.env[key]).filter((value) => value && value.length >= 12);
+for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL", "TEST_DATABASE_URL"]) {
+  if (!process.env[key]) continue;
+  try {
+    const password = decodeURIComponent(new URL(process.env[key]).password);
+    if (password.length >= 12) values.push(password);
+  } catch {
+    throw new Error("Secret scan requires valid PostgreSQL connection URLs.");
+  }
+}
 if (!values.length)
   throw new Error("Private environment configuration is required for a meaningful secret scan.");
 const git = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {

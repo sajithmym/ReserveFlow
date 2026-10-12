@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth/guards";
-import { idSchema, reservationSchema, type Filters } from "@/lib/validators";
+import { lockActor } from "@/lib/auth/transaction-actor";
+import { filtersSchema, idSchema, reservationSchema, type Filters } from "@/lib/validators";
 import { AppError } from "@/lib/errors";
 import { PAGE_SIZE, LIMITS } from "@/config/settings";
 import { fromLocalInput } from "@/lib/time";
@@ -44,8 +45,9 @@ async function lockResource(tx: Prisma.TransactionClient, id: string, needsActiv
       "This resource is inactive and cannot accept reservations.",
     );
 }
-export async function listReservations(filters: Filters) {
+export async function listReservations(input: Filters) {
   const user = await requireUser();
+  const filters = filtersSchema.parse(input);
   if (filters.memberId && user.role !== "ADMIN")
     throw new AppError("FORBIDDEN", "Only administrators can filter by member.");
   const dateStart = filters.date ? fromLocalInput(`${filters.date}T00:00`) : undefined;
@@ -92,6 +94,7 @@ export async function createReservation(input: unknown) {
   const data = reservationSchema.parse(input);
   future(data.startAt);
   return db.$transaction(async (tx) => {
+    await lockActor(tx, user.id);
     await lockResource(tx, data.resourceId);
     future(data.startAt);
     const reservation = await tx.reservation.create({ data: { ...data, userId: user.id } });
@@ -111,7 +114,8 @@ export async function updateReservation(id: unknown, input: unknown) {
   const data = reservationSchema.parse(input);
   future(data.startAt);
   return db.$transaction(async (tx) => {
-    const scope = { id: bookingId, ...(user.role === "MEMBER" ? { userId: user.id } : {}) };
+    const actor = await lockActor(tx, user.id);
+    const scope = { id: bookingId, ...(actor.role === "MEMBER" ? { userId: actor.id } : {}) };
     const original = await tx.reservation.findFirst({ where: scope });
     if (!original) throw new AppError("NOT_FOUND", "Reservation not found.");
     if (original.resourceId !== data.resourceId)
@@ -141,7 +145,8 @@ export async function cancelReservation(id: unknown) {
   const user = await requireUser();
   const bookingId = idSchema.parse(id);
   return db.$transaction(async (tx) => {
-    const scope = { id: bookingId, ...(user.role === "MEMBER" ? { userId: user.id } : {}) };
+    const actor = await lockActor(tx, user.id);
+    const scope = { id: bookingId, ...(actor.role === "MEMBER" ? { userId: actor.id } : {}) };
     const original = await tx.reservation.findFirst({ where: scope });
     if (!original) throw new AppError("NOT_FOUND", "Reservation not found.");
     await lockResource(tx, original.resourceId, false);

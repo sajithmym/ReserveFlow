@@ -1,6 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth/guards";
+import { lockActor } from "@/lib/auth/transaction-actor";
+import { SECURITY } from "@/config/security";
 import { hashPassword } from "@/lib/auth/password";
 import {
   activeSchema,
@@ -82,13 +84,8 @@ export async function memberOptions() {
 }
 async function lockManagement(tx: Prisma.TransactionClient, actorId: string) {
   // Serialize role/status changes so concurrent requests cannot remove the last admin.
-  await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(724091)`;
-  const actor = await tx.user.findUnique({
-    where: { id: actorId },
-    select: { role: true, isActive: true },
-  });
-  if (!actor?.isActive || actor.role !== "ADMIN")
-    throw new AppError("FORBIDDEN", "Administrator access is required.");
+  await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${SECURITY.managementLock})`;
+  await lockActor(tx, actorId, true);
 }
 async function protectAdmin(
   tx: Prisma.TransactionClient,
@@ -144,22 +141,30 @@ export async function updateMember(inputId: unknown, input: unknown) {
     return await db.$transaction(async (tx) => {
       await lockManagement(tx, actor.id);
       const existing = await protectAdmin(tx, id, data.role, data.isActive);
-      const member = await tx.user.update({ where: { id }, data, select });
+      const revoke =
+        encoded || !data.isActive || existing.role !== data.role || existing.email !== data.email;
+      const member = await tx.user.update({
+        where: { id },
+        data: {
+          ...data,
+          ...(revoke ? { sessionsInvalidBefore: new Date() } : {}),
+        },
+        select,
+      });
       if (encoded)
         await tx.account.upsert({
           where: { providerId_accountId: { providerId: "credential", accountId: id } },
           create: { userId: id, accountId: id, providerId: "credential", password: encoded },
           update: { password: encoded },
         });
-      if (encoded || !data.isActive || existing.role !== data.role || existing.email !== data.email)
-        await tx.session.deleteMany({ where: { userId: id } });
+      if (revoke) await tx.session.deleteMany({ where: { userId: id } });
       await recordAudit(tx, {
         actorId: actor.id,
         action: "MEMBER_UPDATE",
         entity: "USER",
         entityId: member.id,
         before: auditSnapshot(existing),
-        after: auditSnapshot(member),
+        after: { ...auditSnapshot(member), passwordChanged: !!encoded },
       });
       return member;
     });
@@ -180,7 +185,14 @@ export async function setMemberActive(
     const existing = await tx.user.findUnique({ where: { id }, select });
     if (!existing) throw new AppError("NOT_FOUND", "Member not found.");
     await protectAdmin(tx, id, existing.role, isActive);
-    const member = await tx.user.update({ where: { id }, data: { isActive }, select });
+    const member = await tx.user.update({
+      where: { id },
+      data: {
+        isActive,
+        ...(!isActive ? { sessionsInvalidBefore: new Date() } : {}),
+      },
+      select,
+    });
     if (!isActive) await tx.session.deleteMany({ where: { userId: id } });
     await recordAudit(tx, {
       actorId: actor.id,

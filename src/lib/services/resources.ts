@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { requireAdmin, requireUser } from "@/lib/auth/guards";
-import { idSchema, resourceSchema, type Filters } from "@/lib/validators";
+import { lockActor } from "@/lib/auth/transaction-actor";
+import { filtersSchema, idSchema, resourceSchema, type Filters } from "@/lib/validators";
 import { AppError } from "@/lib/errors";
 import { recordAudit } from "./audit";
 import { PAGE_SIZE, LIMITS } from "@/config/settings";
@@ -27,8 +28,9 @@ function auditSnapshot(resource: {
   };
 }
 
-export async function listResources(filters: Filters) {
+export async function listResources(input: Filters) {
   const user = await requireUser();
+  const filters = filtersSchema.parse(input);
   const now = new Date();
   const where: Prisma.ResourceWhereInput = {
     ...(user.role === "MEMBER" ? { isActive: true } : {}),
@@ -100,6 +102,7 @@ export async function createResource(input: unknown) {
   const actor = await requireAdmin();
   const data = resourceSchema.parse(input);
   return db.$transaction(async (tx) => {
+    await lockActor(tx, actor.id, true);
     const resource = await tx.resource.create({ data });
     await recordAudit(tx, {
       actorId: actor.id,
@@ -116,6 +119,7 @@ export async function updateResource(id: unknown, input: unknown) {
   const resourceId = idSchema.parse(id);
   const data = resourceSchema.parse(input);
   return db.$transaction(async (tx) => {
+    await lockActor(tx, actor.id, true);
     const rows = await tx.$queryRaw<
       { id: string }[]
     >`SELECT "id" FROM "Resource" WHERE "id" = ${resourceId}::uuid FOR UPDATE`;
@@ -139,6 +143,7 @@ export async function setResourceActive(id: unknown, isActive: boolean) {
   if (typeof isActive !== "boolean")
     throw new AppError("VALIDATION_ERROR", "Invalid resource status.");
   return db.$transaction(async (tx) => {
+    await lockActor(tx, actor.id, true);
     const rows = await tx.$queryRaw<
       { id: string }[]
     >`SELECT "id" FROM "Resource" WHERE "id" = ${resourceId}::uuid FOR UPDATE`;

@@ -14,14 +14,13 @@ export async function recordAudit(
     after?: Snapshot;
   },
 ) {
-  await tx.auditEvent.create({
-    data: {
-      actorId: event.actorId,
-      action: event.action,
-      entity: event.entity,
-      entityId: event.entityId,
-      before: event.before,
-      after: event.after,
-    },
-  });
+  // INSERT without RETURNING preserves insert-only runtime permissions:
+  // Prisma's create() would also require SELECT on the private audit snapshots.
+  await tx.$executeRaw`
+    INSERT INTO "AuditEvent" ("id", "actorId", "action", "entity", "entityId", "before", "after")
+    VALUES (${crypto.randomUUID()}::uuid, ${event.actorId}::uuid,
+      ${event.action}, ${event.entity}, ${event.entityId}::uuid,
+      ${event.before ? JSON.stringify(event.before) : null}::jsonb,
+      ${event.after ? JSON.stringify(event.after) : null}::jsonb)
+  `;
 }

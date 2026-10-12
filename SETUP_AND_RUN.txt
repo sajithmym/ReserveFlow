@@ -399,7 +399,8 @@ provision their own private accounts rather than using these demo logins.
 1. On your PostgreSQL server, provision a dedicated reserveflow database and
    a separate reserveflow_test database. The migration owner must own the
    schema and have permission to install btree_gist. Provision an app runtime
-   login separately with a unique password.
+   login and a test-only owner separately, each with a unique password.
+   The app runtime must not be postgres, a superuser, or the schema owner.
 
 2. In a fresh source folder, create a private environment file:
 
@@ -433,20 +434,14 @@ provision their own private accounts rather than using these demo logins.
      npm ci
      npm run db:migrate
 
-4. As the migration owner or database administrator, grant runtime access in
-   reserveflow (replace APP_USER with the actual runtime role identifier):
+4. Apply restricted runtime grants using the configured migration owner:
 
-     GRANT CONNECT ON DATABASE reserveflow TO APP_USER;
-     GRANT USAGE ON SCHEMA public TO APP_USER;
-     GRANT SELECT, INSERT, UPDATE ON "User", "Account", "Verification",
-       "Resource", "Reservation" TO APP_USER;
-     GRANT SELECT, INSERT, UPDATE, DELETE ON "Session", "Verification" TO APP_USER;
-     GRANT SELECT, INSERT ON "AuditEvent" TO APP_USER;
-     GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO APP_USER;
+     npm run db:grant
 
-   The runtime login must not own the schema or have schema modification or
-   reservation/resource deletion privileges. npm run db:grant intentionally
-   supports only the automatic local cluster.
+   This supports both local setup modes. It removes schema creation and broad
+   table grants, grants only required app/RateLimit access, and permits INSERT
+   only on AuditEvent. Startup verifies actual role permissions. Runtime must
+   not own the schema or have schema modification/history deletion privileges.
 
 5. Seed resources using the configured migration owner, then create the one private administrator:
 
@@ -469,8 +464,14 @@ provision their own private accounts rather than using these demo logins.
    in this guide or a shared transcript. Remove the temporary variable even
    if migration fails, so later app commands use the .env migration URL.
 
-7. Start with npm run dev and sign in as described in section 5. Keep your
+7. Start with npm run dev and sign in using your private bootstrap account. Keep your
    existing PostgreSQL server running. Do not use db:local or db:stop here.
+
+   Both dev and start bind to 127.0.0.1 by default. Hosted installations require
+   HTTPS, private accounts, certificate-verified DB TLS (sslmode=verify-full),
+   and a proxy/network policy protecting the app origin. AUTH_TRUSTED_IP_HEADER
+   is optional; only enable it for a proxy-overwritten header. Login limits are
+   shared in PostgreSQL and survive restarts. See README.md for deployment limits.
 
 
 13. FILES TO KEEP PRIVATE AND QUICK COMMAND REFERENCE

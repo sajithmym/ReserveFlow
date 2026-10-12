@@ -3,6 +3,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
 import { z } from "zod";
+import { LIMITS } from "../src/config/settings";
+import { SECURITY } from "../src/config/security";
 
 const config = z.object({
   email: z
@@ -11,7 +13,14 @@ const config = z.object({
     .max(254)
     .pipe(z.email())
     .transform((value) => value.toLowerCase()),
-  password: z.string().min(12).max(128),
+  password: z
+    .string()
+    .min(LIMITS.passwordMin)
+    .max(LIMITS.passwordMax)
+    .refine(
+      (password) => !password.startsWith("REPLACE_WITH"),
+      "Replace the bootstrap password placeholder.",
+    ),
 });
 const credentials = config.parse({
   email: process.env.ADMIN_BOOTSTRAP_EMAIL,
@@ -33,6 +42,11 @@ try {
     );
   const password = await hashPassword(credentials.password);
   const user = await db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 AS "locked" FROM pg_advisory_xact_lock(${SECURITY.managementLock})`;
+    if (await tx.user.count({ where: { role: "ADMIN", isActive: true } }))
+      throw new Error(
+        "An active administrator already exists. Create additional accounts through Members.",
+      );
     const created = await tx.user.create({
       data: {
         email: credentials.email,

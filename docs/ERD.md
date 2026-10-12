@@ -2,11 +2,11 @@
 
 ![ReserveFlow entity relationship diagram](erd.svg)
 
-The full Mermaid representation is in [erd.mmd](erd.mmd). It includes all six actual tables, including the authentication library's Account, Session and Verification tables. Password hashes live in `Account.password` rather than being duplicated on User. Verification is part of Better Auth's schema; no email verification/recovery flow is enabled in this app.
+The full Mermaid representation is in [erd.mmd](erd.mmd). It includes all eight application tables: User, Resource, Reservation, Account, Session, Verification, AuditEvent, and RateLimit. Password hashes live in `Account.password` rather than being duplicated on User. Verification is part of Better Auth's schema; no email verification/recovery flow is enabled in this app.
 
 User and Resource each have a one-to-many relationship with Reservation. Account and Session belong to User. Reservation foreign keys restrict deletion; authentication foreign keys cascade on user deletion. The application provides no user or reservation hard-delete flow.
 
-Member management uses the existing User and Account tables. Deactivation and archive set `User.isActive` to false and revoke sessions without deleting identities or reservations. The member service serializes role/status changes with a PostgreSQL transaction advisory lock to retain at least one active administrator. No additional table or migration is needed for these features.
+Member management uses User and Account. Access/credential changes revoke sessions and update `sessionsInvalidBefore` to reject logins begun before the change. The member service serializes role/status changes with a transaction advisory lock to retain at least one active administrator; writes acquire an actor-row shared lock before resource/reservation locks. User has many AuditEvents, with deletion restricted to preserve the actor identity. AuditEvent stores before/after JSON snapshots without credential values; the runtime role has INSERT only. RateLimit has no user relationship and stores shared atomic per-client/path counters.
 
 Database integrity rules:
 

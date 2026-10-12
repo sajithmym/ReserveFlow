@@ -1,11 +1,8 @@
 import "dotenv/config";
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-const url = process.env.TEST_DATABASE_URL;
-if (!url || !new URL(url).pathname.endsWith("_test"))
-  throw new Error(
-    "Integration tests require an explicitly isolated TEST_DATABASE_URL ending in _test.",
-  );
+import { isolatedTestDatabase } from "./scripts/test-database.mjs";
+const url = isolatedTestDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL);
 process.env.DATABASE_URL = url;
 export default defineConfig({
   resolve: {

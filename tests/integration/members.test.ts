@@ -137,6 +137,9 @@ describe("member management against isolated PostgreSQL", () => {
       password: newPassword,
     });
     expect(await db.session.count({ where: { userId: member.id } })).toBe(0);
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: member.id } })).sessionsInvalidBefore,
+    ).toBeInstanceOf(Date);
     const account = await db.account.findFirstOrThrow({ where: { userId: member.id } });
     expect(await verify(account.password!, newPassword)).toBe(true);
     await updateMember(member.id, {

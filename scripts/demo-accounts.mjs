@@ -27,7 +27,10 @@ export function getDemoAccounts() {
   if (
     process.env.NODE_ENV === "production" ||
     connections.some(
-      (connection) => !["localhost", "127.0.0.1", "[::1]"].includes(connection.hostname),
+      (connection) =>
+        !["postgres:", "postgresql:"].includes(connection.protocol) ||
+        !["localhost", "127.0.0.1", "[::1]"].includes(connection.hostname) ||
+        connection.port !== "54329",
     )
   )
     throw new Error("Published demo accounts are restricted to local development databases.");

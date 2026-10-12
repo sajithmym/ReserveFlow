@@ -75,6 +75,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   state.actor = actor;
+  await db.user.update({ where: { id: memberId }, data: { isActive: true, role: "MEMBER" } });
   await db.reservation.deleteMany({ where: { resourceId: { in: [resourceId, secondId] } } });
   await db.resource.update({ where: { id: resourceId }, data: { isActive: true } });
 });
@@ -231,6 +232,7 @@ describe("real PostgreSQL booking integrity", () => {
   });
   it("serializes booking and deactivation with the same resource lock", async () => {
     state.actor = { ...actor, role: "ADMIN" };
+    await db.user.update({ where: { id: memberId }, data: { role: "ADMIN" } });
     const results = await Promise.allSettled([
       createReservation(input()),
       setResourceActive(resourceId, false),
@@ -262,6 +264,7 @@ describe("authorization-scoped services", () => {
   });
   it("permits administrator resource CRUD and preserves history on deactivation", async () => {
     state.actor = { ...actor, role: "ADMIN" };
+    await db.user.update({ where: { id: memberId }, data: { role: "ADMIN" } });
     const data = {
       name: "Admin test room",
       category: "Meeting room",
@@ -300,5 +303,27 @@ describe("authorization-scoped services", () => {
   it("denies forged ownership and oversized input", async () => {
     await expect(createReservation({ ...input(), userId: otherId })).rejects.toThrow();
     await expect(createReservation({ ...input(), title: "x".repeat(161) })).rejects.toThrow();
+  });
+  it("rejects stale authenticated actors after account deactivation", async () => {
+    await db.user.update({ where: { id: memberId }, data: { isActive: false } });
+    await expect(createReservation(input())).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+    expect(await db.reservation.count({ where: { resourceId } })).toBe(0);
+  });
+  it("rechecks administrator status for resource writes and reservation ownership", async () => {
+    state.actor = { ...actor, role: "ADMIN" };
+    await expect(setResourceActive(resourceId, false)).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const otherBooking = await db.reservation.create({
+      data: {
+        resourceId,
+        userId: otherId,
+        title: "Other owner",
+        startAt: new Date(base),
+        endAt: new Date(base + 3600000),
+      },
+    });
+    await expect(cancelReservation(otherBooking.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(updateReservation(otherBooking.id, input(120))).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
   });
 });

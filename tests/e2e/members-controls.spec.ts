@@ -34,6 +34,7 @@ test.afterAll(async () => {
   }
   if (member) {
     await db.reservation.deleteMany({ where: { userId: member.id } });
+    await db.auditEvent.deleteMany({ where: { actorId: member.id } });
     await db.user.delete({ where: { id: member.id } });
   }
   await db.$disconnect();

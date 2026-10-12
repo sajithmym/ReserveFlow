@@ -11,9 +11,28 @@ export const currentUser = cache(async () => {
   if (!session) return null;
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, email: true, role: true, isActive: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      sessionsInvalidBefore: true,
+    },
   });
-  return user?.isActive ? user : null;
+  if (
+    !user?.isActive ||
+    (user.sessionsInvalidBefore &&
+      new Date(session.session.createdAt) <= user.sessionsInvalidBefore)
+  )
+    return null;
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+  };
 });
 export async function requireUser() {
   const user = await currentUser();

@@ -15,6 +15,7 @@ if (!existsSync(".env")) {
       `TEST_DATABASE_URL=postgresql://reserveflow_owner:${ownerPassword}@127.0.0.1:54329/reserveflow_test`,
       "BETTER_AUTH_URL=http://localhost:3000",
       `BETTER_AUTH_SECRET=${secret()}`,
+      `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${randomBytes(32).toString("base64")}`,
       "LOCAL_POSTGRES=true",
       `LOCAL_DB_OWNER_PASSWORD=${ownerPassword}`,
       `LOCAL_DB_APP_PASSWORD=${appPassword}`,
@@ -36,7 +37,7 @@ function run(script, args = [], env = process.env) {
 if (process.env.LOCAL_POSTGRES === "true") run("scripts/local-db.mjs", ["start"]);
 run("node_modules/prisma/build/index.js", ["generate"]);
 run("node_modules/prisma/build/index.js", ["migrate", "deploy"]);
-if (process.env.LOCAL_POSTGRES === "true") run("scripts/grant-runtime.mjs");
+run("scripts/grant-runtime.mjs");
 run("node_modules/prisma/build/index.js", ["db", "seed"]);
 if (process.env.LOCAL_POSTGRES === "true" && process.env.TEST_DATABASE_URL) {
   run("node_modules/prisma/build/index.js", ["migrate", "deploy"], {
@@ -45,5 +46,7 @@ if (process.env.LOCAL_POSTGRES === "true" && process.env.TEST_DATABASE_URL) {
   });
 }
 console.log(
-  "ReserveFlow is ready. Run npm run dev. Demo logins are in README.md and SETUP_AND_RUN.txt.",
+  process.env.LOCAL_POSTGRES === "true"
+    ? "ReserveFlow is ready. Run npm run dev. Demo logins are in README.md and SETUP_AND_RUN.txt."
+    : "ReserveFlow is ready. Bootstrap a private administrator with npm run db:bootstrap-admin if needed, then run npm run dev.",
 );

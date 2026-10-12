@@ -51,4 +51,10 @@ describe("public local demonstration accounts", () => {
     vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@127.0.0.1:54329/reserveflow");
     expect(() => getDemoAccounts()).toThrow("isolated LOCAL_POSTGRES=true");
   });
+  it("refuses the ordinary PostgreSQL service even if the demo flag is set", () => {
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("LOCAL_POSTGRES", "true");
+    vi.stubEnv("MIGRATION_DATABASE_URL", "postgresql://owner@localhost:5432/reserveflow");
+    expect(() => getDemoAccounts()).toThrow("local development databases");
+  });
 });

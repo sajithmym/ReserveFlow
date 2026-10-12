@@ -14,7 +14,19 @@ async function clearPassword(page: Page) {
 export async function login(page: Page, role: "ADMIN" | "MEMBER") {
   const account = getDemoAccounts()[role];
   try {
-    await page.goto("/login");
+    const loaded = await page.goto("/login");
+    if (process.env.PLAYWRIGHT_SERVER_MODE === "production") {
+      const policy = loaded?.headers()["content-security-policy"] ?? "";
+      expect(policy).toContain("strict-dynamic");
+      expect(policy).not.toContain("unsafe-inline");
+      expect(policy).not.toContain("unsafe-eval");
+      const nonce = await page
+        .locator("script[nonce]")
+        .first()
+        .evaluate((element) => (element as HTMLScriptElement).nonce);
+      expect(nonce).not.toBe("");
+      expect(policy).toContain(`'nonce-${nonce}'`);
+    }
     await expect(page).toHaveTitle(`Sign in · ${APP_NAME}`);
     for (let attempt = 0; attempt < 2; attempt++) {
       await page.getByLabel("Email address").fill(account.email);

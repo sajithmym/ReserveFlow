@@ -6,6 +6,11 @@ function contentSecurityPolicy(nonce: string) {
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ""}`,
     `style-src 'self'${development ? " 'unsafe-inline'" : ` 'nonce-${nonce}'`}`,
+    // React streaming emits style="display:none" for hidden Suspense content.
+    // Permit that exact style attribute without allowing arbitrary inline CSS.
+    ...(!development
+      ? ["style-src-attr 'unsafe-hashes' 'sha256-aqNNdDLnnrDOnTNdkJpYlAxKVJtLt9CtFLklmInuUAE='"]
+      : []),
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
@@ -13,8 +18,10 @@ function contentSecurityPolicy(nonce: string) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    "block-all-mixed-content",
-    ...(development ? [] : ["upgrade-insecure-requests"]),
+    // Local production previews use HTTP; deployments upgrade via HTTPS origin.
+    ...(!development && process.env.BETTER_AUTH_URL?.startsWith("https://")
+      ? ["upgrade-insecure-requests"]
+      : []),
   ].join("; ");
 }
 
@@ -33,10 +40,6 @@ export const config = {
   matcher: [
     {
       source: "/((?!_next/static|_next/image|favicon.ico).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
     },
   ],
 };

@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
           { key: "X-DNS-Prefetch-Control", value: "off" },
           { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
-          ...(production
+          ...(production && process.env.BETTER_AUTH_URL?.startsWith("https://")
             ? [
                 {
                   key: "Strict-Transport-Security",
