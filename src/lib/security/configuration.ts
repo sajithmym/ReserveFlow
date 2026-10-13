@@ -1,4 +1,5 @@
 import { LOCAL_HOSTS } from "@/config/security";
+import { databaseUrl } from "@/lib/db/config.mjs";
 
 type Environment = Record<string, string | undefined>;
 const placeholder = /CHANGE_ME|REPLACE_WITH|YOUR_UNIQUE|YOUR_PRIVATE|YOUR_BASE64/;
@@ -35,30 +36,14 @@ export function authConfiguration(environment: Environment) {
   };
 }
 
-export function databaseConnection(value: string | undefined) {
-  let connection: URL;
-  try {
-    connection = new URL(value ?? "");
-    if (
-      !/^postgres(?:ql)?:$/.test(connection.protocol) ||
-      !connection.hostname ||
-      connection.pathname === "/"
-    )
-      throw new Error("invalid");
-  } catch {
-    throw new Error("Configure a PostgreSQL DATABASE_URL in your private environment.");
-  }
-  if (decodeURIComponent(connection.username) === "postgres")
-    throw new Error("DATABASE_URL must use a restricted runtime role, not the postgres superuser.");
-  if (placeholder.test(connection.password))
-    throw new Error("Replace the DATABASE_URL password placeholder.");
+export function databaseConnection(environment: Environment = process.env) {
+  const value = databaseUrl(environment, environment.DB_TARGET === "test" ? "test" : "runtime");
+  const connection = new URL(value);
   if (
-    !LOCAL_HOSTS.has(connection.hostname) &&
-    (connection.searchParams.get("sslmode") !== "verify-full" ||
-      connection.searchParams.get("ssl") === "false")
+    decodeURIComponent(connection.username) === "postgres" &&
+    !LOCAL_HOSTS.has(connection.hostname)
   )
-    throw new Error(
-      "Remote database connections require certificate-verified TLS (sslmode=verify-full).",
-    );
-  return value!;
+    throw new Error("Remote databases must use a restricted runtime role.");
+  // Startup verifies actual privileges; local postgres is supported only in development.
+  return value;
 }

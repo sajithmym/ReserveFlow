@@ -1,3 +1,4 @@
+import { testDatabaseUrl } from "../../scripts/test-database.mjs";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -195,7 +196,7 @@ describe("real PostgreSQL booking integrity", () => {
   });
   it("enforces exclusion across independent connections without resource locks", async () => {
     const separate = new PrismaClient({
-      adapter: new PrismaPg({ connectionString: process.env.TEST_DATABASE_URL }),
+      adapter: new PrismaPg({ connectionString: testDatabaseUrl() }),
     });
     try {
       for (let run = 0; run < 4; run++) {

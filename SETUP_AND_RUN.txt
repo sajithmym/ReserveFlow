@@ -1,6 +1,6 @@
 RESERVEFLOW - COMPLETE SETUP AND RUN GUIDE FOR A NEW WINDOWS PC
 =============================================================
-Updated: 12 October 2026 (Asia/Colombo)
+Updated: 13 October 2026 (Asia/Colombo)
 
 This guide creates a fresh local demonstration environment. Run the commands
 in PowerShell from the project root, which contains package.json.
@@ -231,9 +231,15 @@ With setup completed and PostgreSQL running, run each command separately:
   npm audit --omit=dev
   npm run check:secrets
 
-The database suite uses TEST_DATABASE_URL, which must point to the dedicated
-reserveflow_test database. Never point it at your application database or a
-production database. Automatic setup creates and migrates the test database.
+The database suite uses TEST_DB_USERNAME, TEST_DB_PASSWORD and TEST_DB_DATABASE.
+TEST_DB_DATABASE must name the dedicated reserveflow_test database; its identity
+must not be elevated. TEST_DB_HOST and TEST_DB_PORT default to the main fields.
+Never point it at your application database or a production database. Automatic
+setup creates and migrates the test database.
+
+TEST_DB_* fields may be kept in an ignored .env.test.local file. The integration
+runner loads it automatically, and Prisma loads it when DB_TARGET=test. This
+keeps the main .env database section to the five DB_* connection fields.
 
 If typecheck reports missing generated Next.js route types on a fresh checkout,
 run npx next typegen, then npm run typecheck again. Prisma client generation is
@@ -313,8 +319,8 @@ For an app-only migration command after PostgreSQL has started:
 
   npm run db:migrate
 
-That command uses MIGRATION_DATABASE_URL and does not separately migrate the
-test database. For the standard local cluster, setup handles both databases.
+That command uses DB_* plus any MIGRATION_DB_* overrides and does not separately
+migrate the test database unless DB_TARGET=test is set temporarily. For the standard local cluster, setup handles both databases.
 
 
 11. TROUBLESHOOTING
@@ -421,7 +427,9 @@ provision their own private accounts rather than using these demo logins.
    a separate reserveflow_test database. The migration owner must own the
    schema and have permission to install btree_gist. Provision an app runtime
    login and a test-only owner separately, each with a unique password.
-   The app runtime must not be postgres, a superuser, or the schema owner.
+   Production runtime must not be postgres, a superuser, or the schema owner.
+   Local npm run dev also supports postgres when both the database and app
+   origin are local. This development exception has full database privileges.
 
 2. In a fresh source folder, create a private environment file:
 
@@ -430,25 +438,35 @@ provision their own private accounts rather than using these demo logins.
    Do not overwrite an existing configured .env. Edit the file privately:
 
      LOCAL_POSTGRES=false
-     DATABASE_URL=postgresql://APP_USER:ENCODED_PASSWORD@HOST:PORT/reserveflow
-     MIGRATION_DATABASE_URL=postgresql://OWNER_USER:ENCODED_PASSWORD@HOST:PORT/reserveflow
-     TEST_DATABASE_URL=postgresql://TEST_OWNER:ENCODED_PASSWORD@HOST:PORT/reserveflow_test
+     # Database Configuration (PostgreSQL)
+     DB_HOST=localhost
+     DB_PORT=5432
+     DB_USERNAME=postgres
+     DB_PASSWORD=YOUR_PRIVATE_LOCAL_PASSWORD
+     DB_DATABASE=reserveflow
+     # Optional for a restricted runtime identity with a separate owner:
+     # MIGRATION_DB_USERNAME=OWNER_USER
+     # MIGRATION_DB_PASSWORD=YOUR_PRIVATE_OWNER_PASSWORD
+     # Required only when running isolated database tests:
+     TEST_DB_USERNAME=TEST_OWNER
+     TEST_DB_PASSWORD=YOUR_PRIVATE_TEST_PASSWORD
+     TEST_DB_DATABASE=reserveflow_test
      BETTER_AUTH_URL=http://localhost:3000
      BETTER_AUTH_SECRET=YOUR_UNIQUE_RANDOM_SECRET
      NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=YOUR_BASE64_ENCODED_32_BYTE_KEY
      ADMIN_BOOTSTRAP_EMAIL=admin@example.local
      ADMIN_BOOTSTRAP_PASSWORD=YOUR_PRIVATE_INITIAL_PASSWORD
 
-   Replace every placeholder. URL-encode special characters in connection-string
-   passwords. The fixed demo logins come from scripts/demo-accounts.mjs.
-   Use localhost for HOST in this local-server route. Generate an auth
+   Replace every placeholder. Enter passwords as plain values; the shared helper
+   URL-encodes them internally. No full database URL is stored in .env. The fixed demo logins come from scripts/demo-accounts.mjs.
+   Use localhost for DB_HOST in this local-server route. Generate an auth
    secret containing at least 32 random bytes, for example:
 
      node --input-type=module -e "import { randomBytes } from 'node:crypto'; console.log(randomBytes(32).toString('hex'));"
 
    This command prints a NEW secret. Run it privately and paste the result into
-   .env; do not share terminal output. LOCAL_DB_* and PG_BIN are not used by
-   the existing-server route. Remove unused placeholder entries if desired.
+   .env; do not share terminal output. PG_BIN is not used by the existing-server
+   route. Remove unused placeholder entries if desired.
 
 3. Install dependencies and apply the application migrations:
 
@@ -462,7 +480,9 @@ provision their own private accounts rather than using these demo logins.
    This supports both local setup modes. It removes schema creation and broad
    table grants, grants only required app/RateLimit access, and permits INSERT
    only on AuditEvent. Startup verifies actual role permissions. Runtime must
-   not own the schema or have schema modification/history deletion privileges.
+   not own the schema or have schema modification/history deletion privileges
+   in production. For local postgres development, db:grant makes no permission
+   changes; npm run start still requires a restricted runtime identity.
 
 5. Seed resources using the configured migration owner, then create the one private administrator:
 
@@ -474,16 +494,16 @@ provision their own private accounts rather than using these demo logins.
    private password in a password manager and remove ADMIN_BOOTSTRAP_EMAIL and
    ADMIN_BOOTSTRAP_PASSWORD from .env.
 
-6. Apply migrations to the dedicated test database. Temporarily set the
-   migration URL in this terminal to your actual TEST_DATABASE_URL value:
+6. After setting the explicit TEST_DB_* fields, apply committed migrations
+   to the dedicated test database with a temporary target selector:
 
-     $env:MIGRATION_DATABASE_URL = 'REPLACE_WITH_YOUR_PRIVATE_TEST_DATABASE_URL'
+     $env:DB_TARGET = 'test'
      npm run db:migrate
-     Remove-Item Env:MIGRATION_DATABASE_URL
+     Remove-Item Env:DB_TARGET
 
-   Enter the real private URL only in your private terminal; never save it
-   in this guide or a shared transcript. Remove the temporary variable even
-   if migration fails, so later app commands use the .env migration URL.
+   Remove the temporary variable even if migration fails, so later commands
+   use the application database. Tests refuse remote servers, postgres, and
+   any target that aliases the application database.
 
 7. Start with npm run dev and sign in using your private bootstrap account. Keep your
    existing PostgreSQL server running. Do not use db:local or db:stop here.

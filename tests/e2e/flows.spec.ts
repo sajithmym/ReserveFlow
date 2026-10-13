@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../../src/lib/db/config.mjs";
 import { login } from "./helpers";
 import { TEST_ORIGIN } from "./environment";
 import { TIME_ZONE, DATE_FORMATS, APP_NAME } from "../../src/config/settings";
@@ -14,7 +15,7 @@ if (process.env.LOCAL_POSTGRES !== "true")
 
 const db = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+    connectionString: databaseUrl(process.env, "migration"),
   }),
 });
 const suffix = randomUUID().slice(0, 8);

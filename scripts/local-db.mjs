@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, writeFileSync, unlinkSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
+import { databaseSettings, databaseUrl } from "../src/lib/db/config.mjs";
 
 if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Local cluster is disabled. Configure LOCAL_POSTGRES=true to use this helper.");
@@ -36,7 +37,7 @@ if (process.argv[2] === "stop") {
   console.log("ReserveFlow local cluster stopped; data retained.");
   process.exit(0);
 }
-const connection = new URL(process.env.MIGRATION_DATABASE_URL ?? "");
+const connection = new URL(databaseUrl(process.env, "migration"));
 if (
   connection.hostname !== "127.0.0.1" ||
   connection.port !== "54329" ||
@@ -89,22 +90,40 @@ url.pathname = "/postgres";
 const client = new pg.Client({ connectionString: url.toString() });
 await client.connect();
 try {
-  for (const name of ["reserveflow", "reserveflow_test"]) {
-    const { rowCount } = await client.query("SELECT 1 FROM pg_database WHERE datname = $1", [name]);
-    if (!rowCount) await client.query(`CREATE DATABASE "${name}"`);
-  }
-  const { rowCount } = await client.query(
-    "SELECT 1 FROM pg_roles WHERE rolname = 'reserveflow_app'",
-  );
-  if (!rowCount) {
-    const password = process.env.LOCAL_DB_APP_PASSWORD;
-    if (!password || !/^[a-zA-Z0-9_-]{20,}$/.test(password))
-      throw new Error("A strong LOCAL_DB_APP_PASSWORD is required.");
-    const { rows } = await client.query(
-      "SELECT format('CREATE ROLE reserveflow_app LOGIN PASSWORD %L', $1::text) AS sql",
-      [password],
-    );
-    await client.query(rows[0].sql);
+  for (const [purpose, roleName] of [
+    ["runtime", "reserveflow_app"],
+    ["test", "reserveflow_test_owner"],
+  ]) {
+    const settings = databaseSettings(process.env, purpose);
+    if (
+      settings.USERNAME !== roleName ||
+      settings.HOST !== "127.0.0.1" ||
+      settings.PORT !== "54329" ||
+      settings.DATABASE !== (purpose === "test" ? "reserveflow_test" : "reserveflow")
+    )
+      throw new Error("Local setup requires its dedicated runtime/test roles and database names.");
+    const { rowCount } = await client.query("SELECT 1 FROM pg_roles WHERE rolname = $1", [
+      roleName,
+    ]);
+    if (!rowCount) {
+      if (!/^[a-zA-Z0-9_-]{20,}$/.test(settings.PASSWORD))
+        throw new Error(
+          `A strong ${purpose === "test" ? "TEST_DB_PASSWORD" : "DB_PASSWORD"} is required.`,
+        );
+      const { rows } = await client.query(
+        "SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', $1::text, $2::text) AS sql",
+        [roleName, settings.PASSWORD],
+      );
+      await client.query(rows[0].sql);
+    }
+    const databaseName = settings.DATABASE;
+    const exists = await client.query("SELECT 1 FROM pg_database WHERE datname = $1", [
+      databaseName,
+    ]);
+    if (!exists.rowCount) {
+      const owner = purpose === "test" ? roleName : "reserveflow_owner";
+      await client.query(`CREATE DATABASE "${databaseName}" OWNER "${owner}"`);
+    }
   }
 } finally {
   await client.end();

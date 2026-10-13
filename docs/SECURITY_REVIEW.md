@@ -1,5 +1,7 @@
 # Security review and repairs
 
+Update ? 13 October 2026: database configuration now uses separate `DB_*` fields. At the user's request, local development supports the existing postgres account only when both the database and app origin are local. This exception has full database privileges, including audit/history access, and supersedes the historical local-runtime statements below. Production still checks and rejects elevated credentials. Integration tests require a separate non-elevated identity and `_test` database.
+
 Date: 12 October 2026, Asia/Colombo. Scope: project requirements/documentation, application pages/components/actions, auth/services/validation, PostgreSQL schema/migrations, setup/seed/recording helpers, tests, environment templates, dependency audit, and local database permissions. The supplied original assessment specifications remain unchanged.
 
 ReserveFlow remains a focused Next.js App Router / TypeScript / PostgreSQL app. Browser forms call thin server actions; services authenticate the actor and own domain validation, ownership, transactions, resource locking, and audit writes. Database CHECK/GiST constraints remain the final booking-conflict authority.
@@ -52,7 +54,7 @@ Existing strengths preserved: Argon2id, closed signup/auth operation allowlist, 
 
 Actual final command/browser results and intermediate failures are recorded in [VERIFICATION.md](VERIFICATION.md). This is source review plus local regression testing; it does not establish external deployment or a formal penetration test.
 
-The shared PostgreSQL 18 administrator password previously supplied in chat should be changed privately in pgAdmin. It was not changed automatically because it can affect the user's other databases/applications. The ReserveFlow app no longer uses that superuser password.
+The shared PostgreSQL 18 administrator password previously supplied in chat should be changed privately in pgAdmin. It was not changed automatically because it can affect the user's other databases/applications. The 12 October configuration used a restricted identity. The 13 October local development configuration uses the user-requested postgres identity; production requires restricted credentials.
 
 The full npm audit still reports five high development-toolchain entries from `eslint-config-next` through `braces <=3.0.3` ([upstream advisory](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)); npm's latest braces remains 3.0.3. Its suggested change downgrades the Next.js lint configuration to 14.2.35. The runtime audit is separate; no incompatible downgrade or unreviewed dependency patch was applied. Lint patterns are repository-owned, not user request data.
 

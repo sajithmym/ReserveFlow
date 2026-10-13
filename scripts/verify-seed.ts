@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../src/lib/db/config.mjs";
 import { spawnSync } from "node:child_process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -6,7 +7,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Seed verification is only enabled for the isolated local demo.");
 const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: databaseUrl(process.env, "migration") }),
 });
 async function snapshot() {
   return {

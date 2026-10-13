@@ -1,3 +1,10 @@
+import { databaseUrl } from "../src/lib/db/config.mjs";
+
+/** @param {Record<string, string | undefined>} environment */
+export function testDatabaseUrl(environment = process.env) {
+  return isolatedTestDatabase(databaseUrl(environment, "test"), databaseUrl(environment));
+}
+
 export function isolatedTestDatabase(testValue, runtimeValue) {
   let test, runtime;
   try {

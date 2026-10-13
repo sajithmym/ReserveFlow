@@ -1,5 +1,25 @@
 # Verification report
 
+## Separate PostgreSQL environment fields — 13 October 2026, Asia/Colombo
+
+Replaced database URL environment variables throughout the runtime, Prisma CLI, seed/admin/recording/setup/grant helpers, browser fixture tooling, and integration tests with a shared server-side connection builder. The private `.env` database section contains exactly the requested `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE` fields. Existing authentication settings were retained. Optional `MIGRATION_DB_*` fields support a separate maintenance identity, and preserved `TEST_DB_*` credentials are in the ignored `.env.test.local`. No private values were added to Git-visible files. `.env.example`, README.md, SETUP_AND_RUN.txt, and the security review describe the new configuration.
+
+The user-requested postgres account is permitted only in development with a local database and local application origin. This identity has full database privileges; production startup retains the original privilege checks and rejects it. Session/role/ownership guards, resource locks, reservation history, and all SQL migrations remain unchanged. Test setup checks actual role privileges before fixtures run. Fresh isolated-cluster setup now provisions a separate non-elevated test owner. Seed/admin/maintenance helpers reject a leftover `DB_TARGET=test` selector rather than writing to the main database.
+
+- `npm run lint`: PASS, exit 0.
+- `npm run typecheck`: PASS, exit 0. An initial test-helper parameter inference error was corrected with an explicit environment type before final verification.
+- `npm run test`: PASS, 40 tests in six files, including reserved-character encoding, invalid fields/TLS, test isolation, and development/production permission boundaries.
+- `npm run test:db`: PASS, all 31 tests in three files using `.env.test.local`. Provisioned the previously missing `reserveflow_test` database with its existing non-elevated test owner and applied all five committed migrations; application data was not used for test fixtures.
+- `npm run build`: PASS, final exit 0; compilation, TypeScript and route generation completed.
+- `npm run dev -- --port 3101`: PASS; generation/startup completed with the requested five fields and `/login` returned HTTP 200 with the ReserveFlow login content. Stopped the verification server afterward.
+- `npm run start -- --port 3102`: EXPECTED REJECTION; production instrumentation refused the postgres account's excessive permissions. Stopped the verification server afterward. Production deployment requires a restricted runtime identity.
+- Fresh-checkout generation smoke check: PASS; Prisma generated the client from a scratch working directory with no `.env` or database variables. This preserves `npm ci`/postinstall before setup.
+- `npx prisma migrate status`: PASS for the application and, with `DB_TARGET=test`, the test database; both report all five migrations applied. `npm run db:grant`: PASS; local postgres mode skipped permission changes as intended.
+- Data preservation: PASS; application user/resource/reservation counts remained unchanged; `reservation_valid_range` and `reservation_no_overlap_confirmed` remain installed. No application schema migrations, seeding, password resets, or role grants were applied during verification.
+- `npm run check:secrets`: PASS; configured app/test secrets were absent from 159 Git-visible source and production browser files. Git ignores `.env`, `.env.test.local`, and local verification files. SQL migrations and the lockfile have no changes.
+
+The referenced ReserveFlow-Prompts folder remains absent. Browser suites were not run against the user's existing service; no browser interaction used application records. Existing-cluster setup/seed/recording paths were updated and checked by lint/typecheck but were not executed against the user's data.
+
 ## Incomplete Prisma runtime installation repair — 13 October 2026, Asia/Colombo
 
 Compared the installed `@prisma/client@7.10.0` against the published package file list: 37 of 75 files were absent, including `runtime/query_compiler_fast_bg.postgresql.mjs` and its `wasm-base64.mjs` companion. Prisma CLI, client, and PostgreSQL adapter versions already matched. Ran `npm ci` to restore the locked dependencies; postinstall regenerated the client. All published Prisma package files are now present. Added the exact runtime-module repair to README.md and SETUP_AND_RUN.txt. No application code, package versions, lockfile, migrations, `.env`, or database records were changed. The referenced ReserveFlow-Prompts folder remains absent in this checkout.

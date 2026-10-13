@@ -1,9 +1,12 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { isolatedTestDatabase } from "./scripts/test-database.mjs";
-const url = isolatedTestDatabase(process.env.TEST_DATABASE_URL, process.env.DATABASE_URL);
-process.env.DATABASE_URL = url;
+import { testDatabaseUrl } from "./scripts/test-database.mjs";
+// Keep optional test credentials separate from the five main database fields.
+// Explicit process environment values retain precedence over either file.
+config({ path: [".env.test.local", ".env"], quiet: true });
+testDatabaseUrl();
+process.env.DB_TARGET = "test";
 export default defineConfig({
   resolve: {
     alias: {
@@ -13,6 +16,7 @@ export default defineConfig({
   },
   test: {
     include: ["tests/integration/**/*.test.ts"],
+    setupFiles: ["tests/integration/setup.ts"],
     environment: "node",
     fileParallelism: false,
     testTimeout: 20000,

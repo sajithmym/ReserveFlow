@@ -1,3 +1,4 @@
+import { testDatabaseUrl } from "../../scripts/test-database.mjs";
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { betterAuth } from "better-auth";
@@ -9,7 +10,7 @@ import { db } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 
 const secondDb = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.TEST_DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: testDatabaseUrl() }),
 });
 const secondServer = betterAuth({
   ...auth.options,

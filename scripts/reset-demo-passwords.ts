@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../src/lib/db/config.mjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
@@ -8,7 +9,7 @@ if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Demo password reset is restricted to the isolated local demo.");
 const accounts = getDemoAccounts();
 const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: databaseUrl(process.env, "migration") }),
 });
 const replacements = await Promise.all(
   (["ADMIN", "MEMBER"] as const).map(async (role) => {

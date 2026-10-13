@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../src/lib/db/config.mjs";
 import { TIME_ZONE, DATE_FORMATS, LIMITS } from "../src/config/settings";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -9,7 +10,7 @@ import { getDemoAccounts } from "../scripts/demo-accounts.mjs";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+    connectionString: databaseUrl(process.env, "migration"),
   }),
 });
 const accountSchema = z.object({

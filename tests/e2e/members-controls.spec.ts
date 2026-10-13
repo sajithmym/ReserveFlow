@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../../src/lib/db/config.mjs";
 import { test, expect, type Page } from "@playwright/test";
 import { PrismaClient } from "../../src/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -11,7 +12,7 @@ if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Browser tests require local demonstration data.");
 const db = new PrismaClient({
   adapter: new PrismaPg({
-    connectionString: process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL,
+    connectionString: databaseUrl(process.env, "migration"),
   }),
 });
 const suffix = randomUUID().slice(0, 8),

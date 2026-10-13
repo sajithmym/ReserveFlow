@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../src/lib/db/config.mjs";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -13,7 +14,7 @@ if (process.env.LOCAL_POSTGRES !== "true")
   throw new Error("Recording is restricted to the local demo environment.");
 const baseURL = process.env.BETTER_AUTH_URL!;
 const db = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.MIGRATION_DATABASE_URL }),
+  adapter: new PrismaPg({ connectionString: databaseUrl(process.env, "migration") }),
 });
 mkdirSync("artifacts", { recursive: true });
 mkdirSync("docs/screenshots", { recursive: true });

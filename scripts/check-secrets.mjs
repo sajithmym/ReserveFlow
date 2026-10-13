@@ -3,27 +3,21 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DEMO_ACCOUNTS } from "./demo-accounts.mjs";
+import { parse } from "dotenv";
 
 const keys = [
   "BETTER_AUTH_SECRET",
-  "LOCAL_DB_OWNER_PASSWORD",
-  "LOCAL_DB_APP_PASSWORD",
-  "DATABASE_URL",
-  "MIGRATION_DATABASE_URL",
-  "TEST_DATABASE_URL",
+  "DB_PASSWORD",
+  "MIGRATION_DB_PASSWORD",
+  "TEST_DB_PASSWORD",
   "ADMIN_BOOTSTRAP_PASSWORD",
   "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY",
 ];
-const values = keys.map((key) => process.env[key]).filter((value) => value && value.length >= 12);
-for (const key of ["DATABASE_URL", "MIGRATION_DATABASE_URL", "TEST_DATABASE_URL"]) {
-  if (!process.env[key]) continue;
-  try {
-    const password = decodeURIComponent(new URL(process.env[key]).password);
-    if (password.length >= 12) values.push(password);
-  } catch {
-    throw new Error("Secret scan requires valid PostgreSQL connection URLs.");
-  }
-}
+const configurations = [process.env];
+if (existsSync(".env.test.local")) configurations.push(parse(readFileSync(".env.test.local")));
+const values = configurations
+  .flatMap((environment) => keys.map((key) => environment[key]))
+  .filter((value) => value && value.length >= 12);
 if (!values.length)
   throw new Error("Private environment configuration is required for a meaningful secret scan.");
 const git = spawnSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], {

@@ -7,18 +7,25 @@ if (!existsSync(".env")) {
   const secret = () => randomBytes(32).toString("hex");
   const ownerPassword = secret();
   const appPassword = secret();
+  const testPassword = secret();
   writeFileSync(
     ".env",
     [
-      `DATABASE_URL=postgresql://reserveflow_app:${appPassword}@127.0.0.1:54329/reserveflow`,
-      `MIGRATION_DATABASE_URL=postgresql://reserveflow_owner:${ownerPassword}@127.0.0.1:54329/reserveflow`,
-      `TEST_DATABASE_URL=postgresql://reserveflow_owner:${ownerPassword}@127.0.0.1:54329/reserveflow_test`,
+      "# Database Configuration (PostgreSQL)",
+      "DB_HOST=127.0.0.1",
+      "DB_PORT=54329",
+      "DB_USERNAME=reserveflow_app",
+      `DB_PASSWORD=${appPassword}`,
+      "DB_DATABASE=reserveflow",
+      "MIGRATION_DB_USERNAME=reserveflow_owner",
+      `MIGRATION_DB_PASSWORD=${ownerPassword}`,
+      "TEST_DB_USERNAME=reserveflow_test_owner",
+      `TEST_DB_PASSWORD=${testPassword}`,
+      "TEST_DB_DATABASE=reserveflow_test",
       "BETTER_AUTH_URL=http://localhost:3000",
       `BETTER_AUTH_SECRET=${secret()}`,
       `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=${randomBytes(32).toString("base64")}`,
       "LOCAL_POSTGRES=true",
-      `LOCAL_DB_OWNER_PASSWORD=${ownerPassword}`,
-      `LOCAL_DB_APP_PASSWORD=${appPassword}`,
       "",
     ].join("\n"),
     { mode: 0o600, flag: "wx" },
@@ -39,10 +46,10 @@ run("node_modules/prisma/build/index.js", ["generate"]);
 run("node_modules/prisma/build/index.js", ["migrate", "deploy"]);
 run("scripts/grant-runtime.mjs");
 run("node_modules/prisma/build/index.js", ["db", "seed"]);
-if (process.env.LOCAL_POSTGRES === "true" && process.env.TEST_DATABASE_URL) {
+if (process.env.LOCAL_POSTGRES === "true" && process.env.TEST_DB_DATABASE) {
   run("node_modules/prisma/build/index.js", ["migrate", "deploy"], {
     ...process.env,
-    MIGRATION_DATABASE_URL: process.env.TEST_DATABASE_URL,
+    DB_TARGET: "test",
   });
 }
 console.log(

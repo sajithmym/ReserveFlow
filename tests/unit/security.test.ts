@@ -58,26 +58,25 @@ describe("authentication deployment boundaries", () => {
       }),
     ).toThrow();
   });
-  it("rejects the superuser and requires verified TLS for remote databases", () => {
+  it("requires a restricted identity and verified TLS for remote databases", () => {
+    const settings = {
+      DB_HOST: "remote.example",
+      DB_PORT: "5432",
+      DB_USERNAME: "app",
+      DB_PASSWORD: "test-only",
+      DB_DATABASE: "reserveflow",
+    };
+    expect(() => databaseConnection(settings)).toThrow("certificate-verified TLS");
+    expect(() => databaseConnection({ ...settings, DB_SSL_MODE: "require" })).toThrow();
     expect(() =>
-      databaseConnection("postgresql://postgres:test@localhost:5432/reserveflow"),
+      databaseConnection({ ...settings, DB_SSL_MODE: "verify-full", DB_USERNAME: "postgres" }),
     ).toThrow("restricted runtime role");
-    expect(() =>
-      databaseConnection("postgresql://%70ostgres:test@localhost/reserveflow"),
-    ).toThrow();
-    expect(() =>
-      databaseConnection(
-        "postgresql://app:test@remote.example/reserveflow?sslmode=require&uselibpqcompat=true",
-      ),
-    ).toThrow();
-    expect(() =>
-      databaseConnection(
-        "postgresql://app:test@remote.example/reserveflow?sslmode=verify-full&ssl=false",
-      ),
-    ).toThrow();
+    expect(databaseConnection({ ...settings, DB_SSL_MODE: "verify-full" })).toContain(
+      "verify-full",
+    );
     expect(
-      databaseConnection("postgresql://app:test@remote.example/reserveflow?sslmode=verify-full"),
-    ).toContain("verify-full");
+      databaseConnection({ ...settings, DB_HOST: "localhost", DB_USERNAME: "postgres" }),
+    ).toContain("localhost");
   });
   it("overwrites client-supplied CSP/nonces and generates fresh production nonces", () => {
     vi.stubEnv("NODE_ENV", "production");

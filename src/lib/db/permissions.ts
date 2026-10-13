@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { isLocalPostgresDevelopment } from "@/lib/db/config.mjs";
 
 export async function assertRuntimePermissions() {
   const [role] = await db.$queryRaw<
@@ -44,6 +45,9 @@ export async function assertRuntimePermissions() {
         AND has_table_privilege(current_user, '"RateLimit"', 'DELETE')) AS "canThrottle"
     FROM pg_roles r WHERE r.rolname = current_user
   `;
+  // Explicit local postgres development mode uses the developer's existing service.
+  // Production and every other identity retain the restricted-role checks.
+  if (role && isLocalPostgresDevelopment()) return;
   if (
     !role ||
     role.elevated ||

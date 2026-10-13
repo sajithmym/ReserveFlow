@@ -1,5 +1,6 @@
 // Public local-demo login values, documented at the user's request.
 // Keep this module in server-side scripts and tests; never import it into the app.
+import { databaseUrl } from "../src/lib/db/config.mjs";
 /** @type {Readonly<Record<'ADMIN' | 'MEMBER', Readonly<{email: string, password: string}>>>} */
 export const DEMO_ACCOUNTS = Object.freeze({
   ADMIN: {
@@ -17,10 +18,9 @@ export function getDemoAccounts() {
     throw new Error("Published demo accounts require the isolated LOCAL_POSTGRES=true cluster.");
   let connections;
   try {
-    connections = [
-      process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL ?? "",
-      ...(process.env.DATABASE_URL ? [process.env.DATABASE_URL] : []),
-    ].map((value) => new URL(value));
+    connections = [databaseUrl(process.env, "migration"), databaseUrl()].map(
+      (value) => new URL(value),
+    );
   } catch {
     throw new Error("Configure a local PostgreSQL connection before using demo accounts.");
   }

@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { databaseUrl } from "../src/lib/db/config.mjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { hashPassword } from "../src/lib/auth/password";
@@ -26,9 +27,7 @@ const credentials = config.parse({
   email: process.env.ADMIN_BOOTSTRAP_EMAIL,
   password: process.env.ADMIN_BOOTSTRAP_PASSWORD,
 });
-const connectionString = process.env.MIGRATION_DATABASE_URL;
-if (!connectionString)
-  throw new Error("MIGRATION_DATABASE_URL is required to bootstrap an administrator.");
+const connectionString = databaseUrl(process.env, "migration");
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 try {
