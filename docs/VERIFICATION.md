@@ -1,5 +1,18 @@
 # Verification report
 
+## Incomplete Prisma runtime installation repair — 13 October 2026, Asia/Colombo
+
+Compared the installed `@prisma/client@7.10.0` against the published package file list: 37 of 75 files were absent, including `runtime/query_compiler_fast_bg.postgresql.mjs` and its `wasm-base64.mjs` companion. Prisma CLI, client, and PostgreSQL adapter versions already matched. Ran `npm ci` to restore the locked dependencies; postinstall regenerated the client. All published Prisma package files are now present. Added the exact runtime-module repair to README.md and SETUP_AND_RUN.txt. No application code, package versions, lockfile, migrations, `.env`, or database records were changed. The referenced ReserveFlow-Prompts folder remains absent in this checkout.
+
+- `npm ci`: PASS, exit 0; installed 732 packages and generated Prisma Client 7.10.0. npm reported five high dependency audit findings; no automatic dependency upgrades were applied.
+- Runtime smoke check: PASS; both previously missing modules import successfully and the PostgreSQL compiler WebAssembly compiles.
+- `npm run dev -- --port 3101`: PASS; predev generation completed, instrumentation loaded without the missing-module error, and `/login` returned HTTP 200 with the ReserveFlow login content. Stopped the verification server afterward.
+- `npm run lint`: PASS, exit 0.
+- `npm run typecheck`: PASS, exit 0.
+- `npm run test`: PASS, 32 tests in four files.
+- `npm run build`: PASS, exit 0; compilation, TypeScript and route generation completed.
+- `npm run test:db`: FAILED, exit 1; the configured local PostgreSQL server reports that `reserveflow_test` does not exist (two failed tests, 29 skipped). The application database is reachable. No test queries were redirected to the application database and no databases were provisioned or reset.
+
 ## Missing Prisma client repair — 12 October 2026, Asia/Colombo
 
 Confirmed `src/generated/prisma/client.ts` was absent. Added `predev: prisma generate` so `npm run dev` recreates the ignored client before Next.js loads instrumentation. Existing build/postinstall generation and database configuration remain unchanged; no migrations, seeding, or application data changes were performed. Added troubleshooting instructions to README.md and SETUP_AND_RUN.txt. The referenced ReserveFlow-Prompts folder is absent in this checkout; no assessment specifications were recreated or changed.

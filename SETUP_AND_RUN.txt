@@ -396,6 +396,18 @@ J. Module not found: Can't resolve '@/generated/prisma/client'
    Then retry the failed command. Generation does not change database tables,
    passwords, or reservation history; no reseeding or db push is needed.
 
+K. Module not found: @prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs
+   The same repair applies to the missing wasm-base64.mjs companion. These
+   runtime files belong to the installed @prisma/client package. Regenerating
+   the client alone cannot restore an incomplete dependency installation.
+   Stop the development server, then run each command separately:
+
+     npm ci
+     npm run dev
+
+   npm ci restores dependencies from the committed lockfile and regenerates
+   the client through postinstall. It preserves .env and database records.
+
 
 12. ALTERNATIVE: USE AN EXISTING LOCAL POSTGRESQL SERVER
 ------------------------------------------------

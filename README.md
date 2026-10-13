@@ -53,6 +53,8 @@ Open **[http://localhost:3000/login](http://localhost:3000/login)** and sign in 
 
 `npm run dev` regenerates the ignored Prisma client before starting Next.js. If another command reports `Can't resolve '@/generated/prisma/client'`, run `npm run db:generate` and retry. Client generation does not migrate, seed, or reset the database.
 
+If startup instead reports missing `@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs` or its `wasm-base64.mjs` companion, stop the development server and run `npm ci`, then `npm run dev`. These runtime files come from the installed `@prisma/client` package; regenerating the client alone cannot restore an incomplete dependency installation. Keep the committed lockfile. Reinstalling dependencies does not change database records or `.env`.
+
 ### Seeded accounts in this local workspace
 
 Only the isolated `LOCAL_POSTGRES=true` cluster on port `54329` provisions these fixed demonstration accounts. Existing PostgreSQL services use a private administrator:
