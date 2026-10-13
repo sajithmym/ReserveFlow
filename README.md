@@ -219,6 +219,8 @@ The npm audit and pinned override decisions are documented in the verification r
 
 ## Repository map
 
+Detailed source-backed handbook: [complete project guide](docs/PROJECT_GUIDE.md), including all database fields, operations, configuration, tests, and tracked files.
+
 ```text
 src/app/                  Protected pages, login, auth routes, server actions
 src/components/           Shell, forms, cards, tables, Radix UI primitives

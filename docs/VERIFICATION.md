@@ -1,5 +1,16 @@
 # Verification report
 
+## Complete project guide — 13 October 2026, Asia/Colombo
+
+Added [PROJECT_GUIDE.md](PROJECT_GUIDE.md) from a study of baseline commit `0c92799`: authored application/services/components, configuration, package manifests/lockfile, schema, all five migrations, scripts, tests, and existing documentation. The guide has 27 numbered sections, a field-level eight-model dictionary, operations/settings/security references, and an individual index for all 134 tracked baseline files. README links to it. It describes current code separately from dated evidence and outdated recording captions; it does not reproduce private environment values or database records. The referenced original prompt folder remains absent.
+
+- Source coverage: PASS; all 134 tracked baseline files are indexed, all 147 checked named export declarations are mentioned, all 77 scalar/relation model fields are documented in their model sections, and all 21 package scripts are listed.
+- Link/structure validation: PASS; all 140 local file links resolve, all 27 contents anchors match headings, and fenced blocks are balanced.
+- Formatting: PASS; Prettier check on PROJECT_GUIDE.md and README.md.
+- Private configuration scan: PASS; `npm run check:secrets` scanned 160 Git-visible source and production browser files without configured private values.
+- Patch whitespace: PASS; `git diff --check` on tracked documentation changes.
+- Application lint, typecheck, unit/integration/browser suites, and build: NOT RERUN for this documentation-only task. Their earlier actual results retain their original entries below. No runtime code, migrations, environment settings, or application data were changed by this study.
+
 ## Separate PostgreSQL environment fields — 13 October 2026, Asia/Colombo
 
 Replaced database URL environment variables throughout the runtime, Prisma CLI, seed/admin/recording/setup/grant helpers, browser fixture tooling, and integration tests with a shared server-side connection builder. The private `.env` database section contains exactly the requested `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DATABASE` fields. Existing authentication settings were retained. Optional `MIGRATION_DB_*` fields support a separate maintenance identity, and preserved `TEST_DB_*` credentials are in the ignored `.env.test.local`. No private values were added to Git-visible files. `.env.example`, README.md, SETUP_AND_RUN.txt, and the security review describe the new configuration.
